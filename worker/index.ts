@@ -59,6 +59,65 @@ const ownerMiddleware = async (c: any, next: any) => {
   await next();
 };
 
+// --- DATABASE INIT ROUTE (Run this once via browser) ---
+api.get('/init', async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT UNIQUE NOT NULL,
+        phone TEXT,
+        password_hash TEXT NOT NULL,
+        role TEXT CHECK(role IN ('customer','owner')) DEFAULT 'customer',
+        reset_token_hash TEXT,
+        reset_token_expires INTEGER,
+        created_at INTEGER DEFAULT (unixepoch())
+      )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS cars (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uuid TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        price_per_day INTEGER NOT NULL,
+        image_url TEXT NOT NULL,
+        category TEXT,
+        fuel_type TEXT,
+        transmission TEXT,
+        seats INTEGER,
+        rating REAL,
+        total_stock INTEGER DEFAULT 1,
+        status TEXT CHECK(status IN ('available','sold')) DEFAULT 'available',
+        created_at INTEGER DEFAULT (unixepoch())
+      )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS bookings (
+        id TEXT PRIMARY KEY,
+        car_id TEXT NOT NULL,
+        car_name TEXT,
+        car_image TEXT,
+        user_email TEXT NOT NULL,
+        customer_name TEXT,
+        customer_phone TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        total_cost INTEGER,
+        advance_amount INTEGER,
+        transaction_id TEXT,
+        status TEXT DEFAULT 'confirmed',
+        is_approved BOOLEAN DEFAULT 0,
+        aadhar_front TEXT,
+        aadhar_back TEXT,
+        license_photo TEXT,
+        location TEXT,
+        created_at INTEGER DEFAULT (unixepoch())
+      )`)
+    ]);
+    return c.json({ success: true, message: "Database tables created successfully!" });
+  } catch (e: any) {
+    return c.json({ error: "Failed to init DB: " + e.message }, 500);
+  }
+});
+
 // --- AUTH ROUTES ---
 api.post('/auth/login', async (c) => {
   try {
@@ -166,9 +225,6 @@ api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
   }
   // R2 Disabled - Skipping upload
   // const imageFile = formData['image'] as File;
-  // if (!imageFile) return c.json({ error: 'Image required' }, 400);
-  // const key = `car-${crypto.randomUUID()}-${imageFile.name}`;
-  // await c.env.IMAGES_BUCKET.put(key, imageFile.stream(), { httpMetadata: { contentType: imageFile.type } });
   
   const imageUrl = ''; // Placeholder URL since R2 is disabled
   
@@ -198,7 +254,6 @@ api.post('/bookings', authMiddleware, async (c) => {
     const user = c.get('user');
     
     // R2 Disabled - Skipping Uploads
-    // const uploadBase64 = async (base64: string, prefix: string) => { ... }
     
     const aadharFrontUrl = '';
     const aadharBackUrl = '';
