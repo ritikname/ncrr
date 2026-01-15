@@ -17,7 +17,7 @@ bucket_name = "ncr-drive-images"
 [[d1_databases]]
 binding = "DB"
 database_name = "ncr-drive-db"
-database_id = "REPLACE_WITH_YOUR_REAL_D1_DATABASE_ID"
+database_id = "a21d9f85-92cd-4b94-ad40-0617c9e6b24f"
 
 [vars]
 ENVIRONMENT = "production"
