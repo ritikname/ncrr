@@ -1,16 +1,20 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { HeroSlide, Booking, UserProfile } from '../types';
-import { getStoredBookings, getAllUsers, getStoredCars } from '../services/storage';
+import React, { useState, useRef } from 'react';
+import { HeroSlide } from '../types';
 
 interface OwnerSettingsProps {
   currentQrCode?: string;
   heroSlides?: HeroSlide[];
+  stats: {
+    totalCars: number;
+    totalUsers: number;
+    totalBookings: number;
+  };
   onSave: (qrCodeBase64: string) => void;
   onSaveSlides: (slides: HeroSlide[]) => void;
 }
 
-const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides = [], onSave, onSaveSlides }) => {
+const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides = [], stats, onSave, onSaveSlides }) => {
   const [preview, setPreview] = useState<string | null>(currentQrCode || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -20,19 +24,7 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
   const [slideImage, setSlideImage] = useState<string | null>(null);
   const slideInputRef = useRef<HTMLInputElement>(null);
 
-  // Data Inspector State
-  const [debugData, setDebugData] = useState<{ bookings: Booking[], users: any[], totalCars: number } | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-
-  useEffect(() => {
-    if (showDebug) {
-        setDebugData({
-            bookings: getStoredBookings(),
-            users: getAllUsers(),
-            totalCars: getStoredCars().length
-        });
-    }
-  }, [showDebug]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,14 +71,6 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
 
   const handleDeleteSlide = (id: string) => {
     onSaveSlides(heroSlides.filter(s => s.id !== id));
-  };
-
-  const handleClearData = () => {
-    if (confirm('CRITICAL WARNING: This will delete ALL bookings and user accounts from this browser. This cannot be undone. Are you sure?')) {
-        localStorage.clear();
-        alert('Data cleared. Page will reload.');
-        window.location.reload();
-    }
   };
 
   return (
@@ -210,7 +194,7 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
 
       <hr className="border-gray-100" />
 
-      {/* Data Inspector */}
+      {/* Real Database Inspector */}
       <div>
          <div 
             className="flex items-center justify-between cursor-pointer"
@@ -223,8 +207,8 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
                     </svg>
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">System Data</h2>
-                    <p className="text-gray-500 text-sm">View local data stored in this browser.</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Database Status</h2>
+                    <p className="text-gray-500 text-sm">View live database statistics.</p>
                 </div>
             </div>
             <button className="text-gray-400">
@@ -232,27 +216,24 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
             </button>
          </div>
 
-         {showDebug && debugData && (
-             <div className="mt-6 bg-gray-50 border border-gray-200 rounded-xl p-6 font-mono text-xs overflow-x-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-bold text-gray-700 uppercase">LocalStorage Dump</h4>
-                    <button onClick={handleClearData} className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 font-bold">
-                        ⚠️ Factory Reset (Clear Data)
-                    </button>
+         {showDebug && (
+             <div className="mt-6 bg-gray-50 border border-gray-200 rounded-xl p-6 font-mono text-sm overflow-x-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <span className="block text-gray-400 text-xs font-bold uppercase mb-1">Total Cars</span>
+                        <span className="text-2xl font-black text-blue-600">{stats.totalCars}</span>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <span className="block text-gray-400 text-xs font-bold uppercase mb-1">Registered Users</span>
+                        <span className="text-2xl font-black text-blue-600">{stats.totalUsers}</span>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <span className="block text-gray-400 text-xs font-bold uppercase mb-1">Total Bookings</span>
+                        <span className="text-2xl font-black text-blue-600">{stats.totalBookings}</span>
+                    </div>
                 </div>
-                
-                <div className="space-y-4">
-                    <div>
-                        <span className="text-blue-600 font-bold">Total Cars in Fleet:</span> {debugData.totalCars}
-                    </div>
-                    <div>
-                        <span className="text-blue-600 font-bold">Registered Users:</span> {debugData.users.length}
-                        <pre className="mt-1 text-gray-600 bg-gray-100 p-2 rounded">{JSON.stringify(debugData.users, null, 2)}</pre>
-                    </div>
-                    <div>
-                        <span className="text-blue-600 font-bold">All Bookings:</span> {debugData.bookings.length}
-                        <pre className="mt-1 text-gray-600 bg-gray-100 p-2 rounded">{JSON.stringify(debugData.bookings.map(b => ({id: b.id, car: b.carName, customer: b.customerName, status: b.status})), null, 2)}</pre>
-                    </div>
+                <div className="mt-4 text-xs text-gray-500 text-center">
+                   These numbers reflect real-time data from your D1 Database.
                 </div>
              </div>
          )}

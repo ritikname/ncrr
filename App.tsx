@@ -39,9 +39,8 @@ const App: React.FC = () => {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  useEffect(() => {
-    // Initial Data Fetch
-    const fetchData = async () => {
+  // Data Fetching Function
+  const fetchData = async () => {
       try {
         const carsData = await api.cars.getAll();
         setCars(carsData);
@@ -62,13 +61,22 @@ const App: React.FC = () => {
         }
       } catch (err) {
         console.error("Failed to load data", err);
-      } finally {
-        // Ensure loader stays for at least 2s for effect, but allows app to render
-        setTimeout(() => setLoadingPhase('ready'), 2000);
+        showToast("Connection Error: Failed to load data", "error");
       }
-    };
-    fetchData();
+  };
+
+  useEffect(() => {
+    // Initial Load
+    fetchData().finally(() => {
+       // Ensure loader stays for at least 2s for effect, but allows app to render
+       setTimeout(() => setLoadingPhase('ready'), 2000);
+    });
   }, [user]);
+
+  const handleRefresh = () => {
+      fetchData();
+      showToast("Dashboard updated", "success");
+  };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -99,8 +107,7 @@ const App: React.FC = () => {
       const res = await api.cars.add(formData);
       if (res.success) {
         showToast("Car added successfully");
-        const updatedCars = await api.cars.getAll();
-        setCars(updatedCars);
+        fetchData(); // Refresh list
       }
     } catch (e) {
       showToast("Failed to add car", "error");
@@ -113,6 +120,7 @@ const App: React.FC = () => {
       if (res.success) {
         showToast("Booking request sent!", "success");
         setIsBookingModalOpen(false);
+        fetchData(); // Refresh bookings
       }
     } catch (e) {
       showToast("Booking failed", "error");
@@ -208,9 +216,18 @@ const App: React.FC = () => {
                 </div>
              ) : (
                 <div className="animate-fade-in space-y-12">
-                   <div className="bg-black text-white p-6 rounded-3xl text-center">
+                   <div className="bg-black text-white p-6 rounded-3xl text-center flex flex-col items-center justify-center relative">
                       <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
                       <p className="opacity-70">Manage your fleet, users, and bookings.</p>
+                      <button 
+                        onClick={handleRefresh}
+                        className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"
+                        title="Refresh Data"
+                      >
+                         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                         </svg>
+                      </button>
                    </div>
                    
                    <AddCarForm onAddCar={handleAddCar} />
@@ -233,6 +250,11 @@ const App: React.FC = () => {
                    <OwnerSettings 
                         currentQrCode={qrCode}
                         heroSlides={heroSlides}
+                        stats={{
+                          totalCars: cars.length,
+                          totalBookings: bookings.length,
+                          totalUsers: usersList.length
+                        }}
                         onSave={handleSaveQr} 
                         onSaveSlides={handleSaveSlides} 
                    />
