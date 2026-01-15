@@ -24,6 +24,9 @@ const handleResponse = async (res: Response) => {
 };
 
 export const api = {
+  system: {
+    init: () => fetch(`${API_URL}/init`).then(handleResponse)
+  },
   auth: {
     me: () => fetch(`${API_URL}/auth/me`).then(handleResponse),
     
