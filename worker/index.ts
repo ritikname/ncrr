@@ -6,11 +6,11 @@ import { sign, verify } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 
 type D1Database = any;
-type R2Bucket = any;
+// type R2Bucket = any; // R2 Disabled
 
 type Bindings = {
   DB: D1Database;
-  IMAGES_BUCKET: R2Bucket;
+  // IMAGES_BUCKET: R2Bucket; // R2 Disabled
   ASSETS: any;
   JWT_SECRET: string;
   OWNER_EMAIL: string;
@@ -133,12 +133,10 @@ api.post('/auth/logout', (c) => {
 });
 
 api.post('/auth/forgot-password', async (c) => {
-  // Real implementation requires Email service
   return c.json({ success: true });
 });
 
 api.post('/auth/reset-password', async (c) => {
-  // Real implementation requires Email service
   return c.json({ success: true });
 });
 
@@ -157,33 +155,29 @@ api.get('/cars', async (c) => {
 });
 
 api.get('/images/:key', async (c) => {
-  const key = c.req.param('key');
-  if (!c.env.IMAGES_BUCKET) {
-      return c.text('R2 Storage Not Configured', 500);
-  }
-  const object = await c.env.IMAGES_BUCKET.get(key);
-  if (!object) return c.text('Not Found', 404);
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set('etag', object.httpEtag);
-  return new Response(object.body, { headers });
+  // R2 Disabled
+  return c.text('R2 Disabled (Enable Billing to use Images)', 200);
 });
 
 api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
   const formData = await c.req.parseBody();
-  if (!c.env.DB || !c.env.IMAGES_BUCKET) {
-      return c.json({ error: 'Database/Storage not configured' }, 503);
+  if (!c.env.DB) {
+      return c.json({ error: 'Database not configured' }, 503);
   }
-  const imageFile = formData['image'] as File;
-  if (!imageFile) return c.json({ error: 'Image required' }, 400);
-  const key = `car-${crypto.randomUUID()}-${imageFile.name}`;
-  await c.env.IMAGES_BUCKET.put(key, imageFile.stream(), { httpMetadata: { contentType: imageFile.type } });
-  const imageUrl = `/api/images/${key}`;
+  // R2 Disabled - Skipping upload
+  // const imageFile = formData['image'] as File;
+  // if (!imageFile) return c.json({ error: 'Image required' }, 400);
+  // const key = `car-${crypto.randomUUID()}-${imageFile.name}`;
+  // await c.env.IMAGES_BUCKET.put(key, imageFile.stream(), { httpMetadata: { contentType: imageFile.type } });
+  
+  const imageUrl = ''; // Placeholder URL since R2 is disabled
+  
   const uuid = crypto.randomUUID();
   await c.env.DB.prepare(`
     INSERT INTO cars (uuid, name, price_per_day, image_url, fuel_type, transmission, category, seats, rating, total_stock)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(uuid, formData['name'], formData['price'], imageUrl, formData['fuelType'], formData['transmission'], formData['category'], formData['seats'], formData['rating'], formData['totalStock']).run();
+  
   return c.json({ success: true, id: uuid });
 });
 
@@ -202,19 +196,13 @@ api.post('/bookings', authMiddleware, async (c) => {
 
     const data = await c.req.json();
     const user = c.get('user');
-    const uploadBase64 = async (base64: string, prefix: string) => {
-      if (!base64 || !c.env.IMAGES_BUCKET) return null;
-      const binString = atob(base64.split(',')[1]);
-      const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
-      const key = `${prefix}-${crypto.randomUUID()}.jpg`;
-      await c.env.IMAGES_BUCKET.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
-      return `/api/images/${key}`;
-    };
     
-    // Upload KYC Documents to R2
-    const aadharFrontUrl = await uploadBase64(data.aadharFront, 'kyc-front');
-    const aadharBackUrl = await uploadBase64(data.aadharBack, 'kyc-back');
-    const licenseUrl = await uploadBase64(data.licensePhoto, 'kyc-license');
+    // R2 Disabled - Skipping Uploads
+    // const uploadBase64 = async (base64: string, prefix: string) => { ... }
+    
+    const aadharFrontUrl = '';
+    const aadharBackUrl = '';
+    const licenseUrl = '';
     
     const id = crypto.randomUUID();
     await c.env.DB.prepare(`
@@ -223,7 +211,6 @@ api.post('/bookings', authMiddleware, async (c) => {
     `).bind(id, data.carId, data.carName, data.carImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation).run();
     
     if (c.env.GOOGLE_SCRIPT_URL) {
-      // Non-blocking notification
       fetch(c.env.GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ type: 'new_booking', to_email: user.email, customer_name: data.customerName, car_name: data.carName }) }).catch(console.error);
     }
     return c.json({ success: true, bookingId: id });
@@ -262,7 +249,6 @@ app.get('/*', async (c) => {
   try {
     const response = await c.env.ASSETS.fetch(c.req.raw);
     if (response.status === 404) {
-      // SPA Fallback
       return await c.env.ASSETS.fetch(new URL('/index.html', c.req.url));
     }
     return response;

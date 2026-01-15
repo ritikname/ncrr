@@ -8,10 +8,10 @@ compatibility_date = "2024-01-01"
 directory = "dist"
 binding = "ASSETS"
 
-# R2 Bucket for Images
-[[r2_buckets]]
-binding = "IMAGES_BUCKET"
-bucket_name = "ncr-drive-images"
+# R2 Bucket for Images (COMMENTED OUT FOR NOW)
+# [[r2_buckets]]
+# binding = "IMAGES_BUCKET"
+# bucket_name = "ncr-drive-images"
 
 # D1 Database
 [[d1_databases]]
