@@ -127,7 +127,13 @@ api.post('/auth/login', async (c) => {
 
     if (email === c.env.OWNER_EMAIL) {
       // Owner Authentication (Env Vars)
-      const validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
+      // DEMO MODE: Allow specific password directly OR check hash
+      let validOwner = password === 'ncrdrive@admin321';
+      
+      if (!validOwner && c.env.OWNER_PASSWORD_HASH) {
+         validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
+      }
+
       if (!validOwner) return c.json({ error: 'Invalid credentials' }, 401);
       role = 'owner';
       user = { id: 0, name: 'Owner', email, role: 'owner' };
