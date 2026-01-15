@@ -1,0 +1,27 @@
+
+name = "ncr-drive-production"
+main = "worker/index.ts"
+compatibility_date = "2024-01-01"
+
+# Static Assets (Frontend)
+[assets]
+directory = "dist"
+binding = "ASSETS"
+
+# R2 Bucket for Images
+[[r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "ncr-drive-images"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "ncr-drive-db"
+database_id = "REPLACE_WITH_YOUR_REAL_D1_DATABASE_ID"
+
+[vars]
+ENVIRONMENT = "production"
+OWNER_EMAIL = "admin@ncrdrive.com"
+# Default hash for "admin123"
+OWNER_PASSWORD_HASH = "$2a$10$w.2.1.2.3.4.5.6.7.8.9.0.1.2.3.4.5.6.7.8.9.0.1" 
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPZyzeLWmdPQpbVzpg6qYjWQ61iVj_8v-qS6zmjrhY17apui_235uwKzx_w37pP1QJbQ/exec"

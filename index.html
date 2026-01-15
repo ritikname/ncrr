@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NCR Drive - Premium Car Rentals</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #f8fafc;
+        scroll-behavior: smooth;
+      }
+      .toggle-checkbox:checked { right: 0; border-color: #4f46e5; }
+      .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
+      @keyframes driveAndDrift { 0% { transform: translateX(-120%) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 40% { transform: translateX(35vw) rotate(0deg); } 50% { transform: translateX(45vw) rotate(25deg) scale(1.1); } 60% { transform: translateX(55vw) rotate(-10deg) scale(1.0); } 100% { transform: translateX(120vw) rotate(0deg); opacity: 0; } }
+      @keyframes skidMarks { 0% { width: 0; opacity: 0; } 45% { width: 0; opacity: 0; left: 35vw; } 55% { width: 200px; opacity: 0.8; left: 35vw; } 100% { width: 200px; opacity: 0; left: 35vw; } }
+      @keyframes speedLines { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+      .drift-car { animation: driveAndDrift 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+      .skid-mark { animation: skidMarks 2.5s ease-out forwards; }
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #f1f1f1; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0?deps=react@18.2.0/",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.21.0?deps=react@18.2.0,react-dom@18.2.0",
+    "bcryptjs": "https://esm.sh/bcryptjs@2.4.3",
+    "hono/": "https://esm.sh/hono@4.11.4/",
+    "hono": "https://esm.sh/hono@4.11.4",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.1"
+  }
+}
+</script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>
