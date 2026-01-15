@@ -9,13 +9,14 @@ import BookingModal from './components/BookingModal';
 import AuthModal from './components/AuthModal';
 import OwnerBookings from './components/OwnerBookings';
 import OwnerSettings from './components/OwnerSettings';
+import OwnerUsersList from './components/OwnerUsersList';
 import AddCarForm from './components/AddCarForm';
 import Toast from './components/Toast';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import { Car, ViewMode, Booking, HeroSlide } from './types';
+import { Car, ViewMode, Booking, HeroSlide, UserProfile } from './types';
 import { api } from './services/api';
 import { useAuth } from './context/AuthContext';
 
@@ -24,6 +25,12 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('customer');
   const [cars, setCars] = useState<Car[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [usersList, setUsersList] = useState<(UserProfile & { joinedAt: number })[]>([]);
+  
+  // Settings State
+  const [qrCode, setQrCode] = useState<string>('');
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
+
   const [loadingPhase, setLoadingPhase] = useState<'drift' | 'ready'>('drift');
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
@@ -38,9 +45,20 @@ const App: React.FC = () => {
       try {
         const carsData = await api.cars.getAll();
         setCars(carsData);
+        
+        // Fetch Settings (Public/Global)
+        const settings = await api.settings.get();
+        if (settings.paymentQr) setQrCode(settings.paymentQr);
+        if (settings.heroSlides) setHeroSlides(settings.heroSlides);
+
         if (user) {
           const bookingsData = await api.bookings.getMyBookings();
           setBookings(bookingsData);
+          
+          if (user.role === 'owner') {
+             const uList = await api.users.getAll();
+             setUsersList(uList);
+          }
         }
       } catch (err) {
         console.error("Failed to load data", err);
@@ -123,6 +141,26 @@ const App: React.FC = () => {
      }
   };
 
+  const handleSaveQr = async (newQr: string) => {
+    try {
+        await api.settings.update({ paymentQr: newQr });
+        setQrCode(newQr);
+        showToast("QR Code Updated", "success");
+    } catch (e) {
+        showToast("Failed to save QR Code", "error");
+    }
+  };
+
+  const handleSaveSlides = async (newSlides: HeroSlide[]) => {
+    try {
+        await api.settings.update({ heroSlides: newSlides });
+        setHeroSlides(newSlides);
+        showToast("Slides Updated", "success");
+    } catch (e) {
+        showToast("Failed to save Slides", "error");
+    }
+  };
+
   if (loadingPhase === 'drift' || authLoading) return <DriftingLoader />;
 
   return (
@@ -140,7 +178,11 @@ const App: React.FC = () => {
            <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
              {viewMode === 'customer' || !user || user.role !== 'owner' ? (
                 <div className="animate-fade-in space-y-8">
-                  <Hero onBrowseFleet={() => {}} onShowHowItWorks={() => {}} slides={[]} />
+                  <Hero 
+                    onBrowseFleet={() => {}} 
+                    onShowHowItWorks={() => {}} 
+                    slides={heroSlides} 
+                  />
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
                       {cars.length > 0 ? (
                         cars.map((car, index) => (
@@ -168,21 +210,32 @@ const App: React.FC = () => {
                 <div className="animate-fade-in space-y-12">
                    <div className="bg-black text-white p-6 rounded-3xl text-center">
                       <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
-                      <p className="opacity-70">Manage your fleet and bookings.</p>
+                      <p className="opacity-70">Manage your fleet, users, and bookings.</p>
                    </div>
                    
                    <AddCarForm onAddCar={handleAddCar} />
                    
-                   <div>
-                     <h3 className="text-xl font-bold mb-6 px-2 border-l-4 border-red-600">Recent Bookings</h3>
-                     <OwnerBookings 
-                        bookings={bookings} 
-                        onApprove={handleApproveBooking} 
-                        onReject={handleRejectBooking} 
-                     />
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div>
+                        <h3 className="text-xl font-bold mb-6 px-2 border-l-4 border-red-600">Recent Bookings</h3>
+                        <OwnerBookings 
+                            bookings={bookings} 
+                            onApprove={handleApproveBooking} 
+                            onReject={handleRejectBooking} 
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold mb-6 px-2 border-l-4 border-red-600">Registered Users</h3>
+                        <OwnerUsersList users={usersList} />
+                      </div>
                    </div>
 
-                   <OwnerSettings onSave={() => {}} onSaveSlides={() => {}} />
+                   <OwnerSettings 
+                        currentQrCode={qrCode}
+                        heroSlides={heroSlides}
+                        onSave={handleSaveQr} 
+                        onSaveSlides={handleSaveSlides} 
+                   />
                 </div>
              )}
            </main>
@@ -202,6 +255,7 @@ const App: React.FC = () => {
         onConfirm={handleBooking}
         userProfile={user ? { name: user.name || '', phone: '' } : null}
         existingBookings={[]}
+        paymentQrCode={qrCode}
       />
 
       <footer className="bg-white border-t border-gray-100 mt-auto">

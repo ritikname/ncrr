@@ -110,12 +110,48 @@ api.get('/init', async (c) => {
         license_photo TEXT,
         location TEXT,
         created_at INTEGER DEFAULT (unixepoch())
+      )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        payment_qr TEXT,
+        hero_slides TEXT,
+        updated_at INTEGER DEFAULT (unixepoch())
       )`)
     ]);
-    return c.json({ success: true, message: "Database tables created successfully!" });
+    // Insert default settings row if not exists
+    await c.env.DB.prepare(`INSERT OR IGNORE INTO settings (id, payment_qr, hero_slides) VALUES (1, '', '[]')`).run();
+    
+    return c.json({ success: true, message: "Database tables (including Settings) created successfully!" });
   } catch (e: any) {
     return c.json({ error: "Failed to init DB: " + e.message }, 500);
   }
+});
+
+// --- SETTINGS ROUTES ---
+api.get('/settings', async (c) => {
+  if (!c.env.DB) return c.json({});
+  try {
+    const settings = await c.env.DB.prepare('SELECT * FROM settings WHERE id = 1').first();
+    return c.json({
+      paymentQr: settings?.payment_qr || '',
+      heroSlides: settings?.hero_slides ? JSON.parse(settings.hero_slides) : []
+    });
+  } catch (e) {
+    return c.json({ paymentQr: '', heroSlides: [] });
+  }
+});
+
+api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
+  const { paymentQr, heroSlides } = await c.req.json();
+  
+  if (paymentQr !== undefined) {
+    await c.env.DB.prepare('UPDATE settings SET payment_qr = ? WHERE id = 1').bind(paymentQr).run();
+  }
+  if (heroSlides !== undefined) {
+    await c.env.DB.prepare('UPDATE settings SET hero_slides = ? WHERE id = 1').bind(JSON.stringify(heroSlides)).run();
+  }
+  return c.json({ success: true });
 });
 
 // --- AUTH ROUTES ---
@@ -203,6 +239,17 @@ api.post('/auth/forgot-password', async (c) => {
 
 api.post('/auth/reset-password', async (c) => {
   return c.json({ success: true });
+});
+
+// --- USER ROUTES (Owner Only) ---
+api.get('/users', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json([]);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT id, name, email, phone, created_at as joinedAt FROM users ORDER BY created_at DESC').all();
+    return c.json(results || []);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
 });
 
 // --- CAR ROUTES ---

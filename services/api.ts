@@ -27,6 +27,17 @@ export const api = {
   system: {
     init: () => fetch(`${API_URL}/init`).then(handleResponse)
   },
+  settings: {
+    get: () => fetch(`${API_URL}/settings`).then(handleResponse),
+    update: (data: any) => fetch(`${API_URL}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(handleResponse)
+  },
+  users: {
+    getAll: () => fetch(`${API_URL}/users`).then(handleResponse)
+  },
   auth: {
     me: () => fetch(`${API_URL}/auth/me`).then(handleResponse),
     
