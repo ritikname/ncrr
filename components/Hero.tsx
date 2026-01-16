@@ -53,40 +53,44 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   };
 
   return (
-    <div className="relative w-full h-[600px] bg-black rounded-3xl overflow-hidden mb-8 shadow-2xl animate-fade-in mx-auto group">
+    <div className="relative w-full mb-24 mx-auto group animate-fade-in">
       
-      {/* Slides */}
-      {activeSlides.map((slide, index) => (
-        <div 
-          key={slide.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-        >
-          {/* Background Image */}
-          <div className="absolute inset-0">
-             <img 
-              src={slide.imageUrl} 
-              alt={slide.title} 
-              className="w-full h-full object-cover opacity-50 transition-transform duration-[10s] scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
-          </div>
-        </div>
-      ))}
+      {/* Slides Container */}
+      <div className="relative h-[550px] w-full rounded-3xl overflow-hidden shadow-xl bg-black">
+        {activeSlides.map((slide, index) => (
+            <div 
+            key={slide.id}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+            >
+            {/* Background Image */}
+            <div className="absolute inset-0">
+                <img 
+                src={slide.imageUrl} 
+                alt={slide.title} 
+                className="w-full h-full object-cover opacity-60 transition-transform duration-[10s] scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
+            </div>
+            
+            {/* Content Overlay - Positioned Higher */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pb-20 px-4 text-center">
+                 <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tighter uppercase italic drop-shadow-2xl mb-4 transform translate-y-0 transition-transform duration-700">
+                    {slide.title}
+                </h1>
+                <p className="text-lg sm:text-xl text-gray-200 font-medium max-w-2xl drop-shadow-md bg-black/30 backdrop-blur-sm p-2 rounded-lg">
+                    {slide.description}
+                </p>
+            </div>
+            </div>
+        ))}
+      </div>
 
-      {/* Content Overlay */}
-      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4">
-          <div className="text-center mb-8 animate-fade-in">
-             <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tighter uppercase italic drop-shadow-xl mb-2">
-                Find Your <span className="text-red-600">Drive</span>
-             </h1>
-             <p className="text-lg text-gray-200 font-medium">Premium self-drive cars in Delhi NCR</p>
-          </div>
-
-          {/* Search Widget */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-3xl shadow-2xl w-full max-w-4xl animate-fade-in mt-4">
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Search Widget - Positioned Overlapping Bottom */}
+      <div className="absolute left-0 right-0 -bottom-16 z-30 px-4 flex justify-center">
+          <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100">
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
-                  <div className="bg-white rounded-2xl p-3 flex flex-col justify-center relative">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center relative border border-gray-100 hover:border-red-200 transition-colors">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Pick-up Point
@@ -109,7 +113,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* Start Date */}
-                  <div className="bg-white rounded-2xl p-3 flex flex-col justify-center">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
                      <input 
                         type="date" 
@@ -121,7 +125,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* End Date */}
-                  <div className="bg-white rounded-2xl p-3 flex flex-col justify-center">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
                      <input 
                         type="date" 
@@ -135,10 +139,10 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   {/* Submit */}
                   <button 
                     type="submit"
-                    className="bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold uppercase tracking-wide shadow-lg shadow-red-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    className="h-[62px] bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold uppercase tracking-wide shadow-lg shadow-red-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
                   >
                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                     Find Cars
+                     Search
                   </button>
               </form>
           </div>
