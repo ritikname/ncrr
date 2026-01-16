@@ -41,6 +41,10 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!location) {
+        alert("Please select a pick-up location.");
+        return;
+    }
     if (!start || !end) {
         alert("Please select pickup and return dates.");
         return;
@@ -82,18 +86,26 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
           <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-3xl shadow-2xl w-full max-w-4xl animate-fade-in mt-4">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {/* Location */}
-                  <div className="bg-white rounded-2xl p-3 flex flex-col justify-center">
+                  <div className="bg-white rounded-2xl p-3 flex flex-col justify-center relative">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        Pick-up City / Area
+                        Pick-up Point
                      </label>
-                     <input 
-                        type="text" 
-                        placeholder="e.g. Connaught Place, Delhi" 
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        className="w-full bg-transparent outline-none font-bold text-gray-900 placeholder-gray-300 text-sm"
-                     />
+                     <div className="relative">
+                        <select 
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm appearance-none cursor-pointer pr-6"
+                        >
+                            <option value="" disabled>Select Station</option>
+                            <option value="Hauz Khas Metro">Hauz Khas Metro</option>
+                            <option value="Kaushambi Metro">Kaushambi Metro</option>
+                            <option value="Shiv Vihar Metro">Shiv Vihar Metro</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-500">
+                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                     </div>
                   </div>
 
                   {/* Start Date */}
