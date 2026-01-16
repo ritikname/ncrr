@@ -14,8 +14,8 @@ type Bindings = {
   ASSETS: any;
   JWT_SECRET: string;
   OWNER_EMAIL: string;
-  OWNER_PASSWORD: string;      // ADDED: For plain text password
-  OWNER_PASSWORD_HASH: string; // KEEP: For hashed password (optional)
+  OWNER_PASSWORD: string;      // Plain text password from Env
+  OWNER_PASSWORD_HASH: string; // Hashed password from Env
   GOOGLE_SCRIPT_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_OWNER_CHAT_ID: string;
@@ -198,7 +198,12 @@ api.post('/auth/login', async (c) => {
     let user;
     let role = 'customer';
 
-    if (email === c.env.OWNER_EMAIL) {
+    // Normalize email for check
+    const ownerEmail = c.env.OWNER_EMAIL ? c.env.OWNER_EMAIL.trim().toLowerCase() : '';
+    const loginEmail = email ? email.trim().toLowerCase() : '';
+    const isOwnerEmail = ownerEmail && loginEmail === ownerEmail;
+
+    if (isOwnerEmail) {
       // Owner Authentication (Env Vars)
       let validOwner = false;
 
@@ -208,16 +213,14 @@ api.post('/auth/login', async (c) => {
       } 
       // 2. Check Hashed Password (from Env Var)
       else if (c.env.OWNER_PASSWORD_HASH) {
-        validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
-      }
-      // 3. Fallback to hardcoded (optional, keep for safety)
-      else if (password === 'ncrdrive@admin321') {
-        validOwner = true;
+        try {
+          validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
+        } catch(e) { console.error("Hash compare failed", e); }
       }
 
-      if (!validOwner) return c.json({ error: 'Invalid credentials' }, 401);
+      if (!validOwner) return c.json({ error: 'Invalid owner credentials' }, 401);
       role = 'owner';
-      user = { id: 0, name: 'Owner', email, role: 'owner' };
+      user = { id: 0, name: 'Owner', email: c.env.OWNER_EMAIL, role: 'owner' };
     } else {
       // Customer Authentication (D1 Database)
       if (!c.env.DB) {
@@ -235,7 +238,7 @@ api.post('/auth/login', async (c) => {
 
     const token = await sign({ 
       id: user.id, 
-      name: user.name, // ADDED: Ensure name is in token for display
+      name: user.name, 
       email: user.email, 
       role: role,
       exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)

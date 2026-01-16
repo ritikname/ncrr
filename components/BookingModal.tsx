@@ -259,17 +259,24 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
   useEffect(() => {
     if (startDate && endDate && car) {
+      // Create explicit dates at midnight to avoid timezone offsets causing 1-day trips to be 0
       const start = new Date(startDate);
       const end = new Date(endDate);
-      const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-      if (dayCount > 0 && end >= start) {
+      
+      if (end >= start) {
+        // Calculate difference in milliseconds
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        // Add 1 to include the start day (e.g. 25th to 25th = 1 day)
+        // Use Math.round to handle potential DST offsets better than floor
+        const dayCount = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+
         setDays(dayCount);
         setTotalCost(dayCount * car.pricePerDay);
         checkConflicts(startDate, endDate);
       } else {
         setDays(0);
         setTotalCost(0);
-        setAvailabilityError('Invalid date range');
+        setAvailabilityError('End date must be after start date');
       }
     }
   }, [startDate, endDate, car]);
