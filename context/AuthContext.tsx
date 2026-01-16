@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../services/api';
 
@@ -30,10 +31,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (creds: any) => {
     const res = await api.auth.login(creds);
+    // Fix: res.user contains the role. res.role is undefined at top level.
+    // We spread res.user first, then ensure role is set correctly if it exists in res.user
     setUser({ 
       email: creds.email, 
       ...res.user,
-      role: res.role as 'customer' | 'owner' 
+      role: res.user.role // Explicitly set role from the user object
     });
   };
 

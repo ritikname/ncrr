@@ -213,6 +213,9 @@ api.post('/auth/login', async (c) => {
       
       const validPass = await bcrypt.compare(password, user.password_hash);
       if (!validPass) return c.json({ error: 'Invalid credentials' }, 401);
+
+      // Use DB role if present
+      if (user.role) role = user.role;
     }
 
     const token = await sign({ 
