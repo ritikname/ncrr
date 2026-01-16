@@ -127,6 +127,8 @@ export const api = {
         licensePhoto: b.license_photo
       }));
     },
+
+    getAvailability: () => fetch(`${API_URL}/public/availability`).then(handleResponse),
     
     updateStatus: (id: string, updates: any) => fetch(`${API_URL}/bookings/${id}`, {
       method: 'PATCH',

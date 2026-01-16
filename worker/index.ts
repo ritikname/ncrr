@@ -176,6 +176,21 @@ api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
+// --- PUBLIC AVAILABILITY ROUTE ---
+api.get('/public/availability', async (c) => {
+  if (!c.env.DB) return c.json([]);
+  try {
+      // Fetch confirmed bookings dates and car_ids to calculate availability on frontend
+      const { results } = await c.env.DB.prepare(
+          "SELECT car_id, start_date, end_date FROM bookings WHERE status != 'cancelled'"
+      ).all();
+      return c.json(results || []);
+  } catch (e) {
+      console.error(e);
+      return c.json([]);
+  }
+});
+
 // --- AUTH ROUTES ---
 api.post('/auth/login', async (c) => {
   try {

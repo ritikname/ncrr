@@ -4,6 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import CarCard from './components/CarCard';
 import Hero from './components/Hero';
+import CarFilters from './components/CarFilters';
 import DriftingLoader from './components/DriftingLoader';
 import BookingModal from './components/BookingModal';
 import AuthModal from './components/AuthModal';
@@ -30,6 +31,9 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [usersList, setUsersList] = useState<(UserProfile & { joinedAt: number })[]>([]);
   
+  // Public Availability (Limited Data)
+  const [publicBookings, setPublicBookings] = useState<{car_id: string, start_date: string, end_date: string}[]>([]);
+
   // Owner Dashboard State
   const [ownerTab, setOwnerTab] = useState<OwnerTab>('fleet');
   const [showAddCarForm, setShowAddCarForm] = useState(false);
@@ -37,6 +41,11 @@ const App: React.FC = () => {
   // Settings State
   const [qrCode, setQrCode] = useState<string>('');
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
+
+  // Search & Filter State
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searchCriteria, setSearchCriteria] = useState({ location: '', start: '', end: '' });
+  const [filters, setFilters] = useState({ category: 'All', transmission: 'All', fuelType: 'All' });
 
   const [loadingPhase, setLoadingPhase] = useState<'drift' | 'ready'>('drift');
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
@@ -47,7 +56,6 @@ const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
-    // Cleanup Legacy Storage (Fixes "ghost" buttons from previous versions)
     localStorage.removeItem(STORAGE_KEYS.CARS);
     localStorage.removeItem(STORAGE_KEYS.VIEW_MODE);
   }, []);
@@ -58,10 +66,13 @@ const App: React.FC = () => {
         const carsData = await api.cars.getAll();
         setCars(carsData);
         
-        // Fetch Settings (Public/Global)
+        // Fetch Settings & Public Availability
         const settings = await api.settings.get();
         if (settings.paymentQr) setQrCode(settings.paymentQr);
         if (settings.heroSlides) setHeroSlides(settings.heroSlides);
+
+        const avail = await api.bookings.getAvailability();
+        setPublicBookings(avail);
 
         if (user) {
           const bookingsData = await api.bookings.getMyBookings();
@@ -81,7 +92,6 @@ const App: React.FC = () => {
   useEffect(() => {
     // Initial Load
     fetchData().finally(() => {
-       // Ensure loader stays for at least 2s for effect, but allows app to render
        setTimeout(() => setLoadingPhase('ready'), 2000);
     });
   }, [user]);
@@ -94,6 +104,47 @@ const App: React.FC = () => {
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
   };
+
+  // --- Search & Filter Logic ---
+  
+  const handleSearch = (criteria: { location: string; start: string; end: string }) => {
+     setSearchCriteria(criteria);
+     setHasSearched(true);
+     showToast("Searching for cars...", "info");
+  };
+
+  const handleFilterChange = (key: string, value: string) => {
+      setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const filteredCars = cars.filter(car => {
+      // 1. Static Attribute Filters
+      if (filters.category !== 'All' && car.category !== filters.category) return false;
+      if (filters.transmission !== 'All' && car.transmission !== filters.transmission) return false;
+      if (filters.fuelType !== 'All' && car.fuelType !== filters.fuelType) return false;
+      
+      // 2. Availability Filter (Only if searched)
+      if (hasSearched && searchCriteria.start && searchCriteria.end) {
+          const searchStart = new Date(searchCriteria.start).getTime();
+          const searchEnd = new Date(searchCriteria.end).getTime();
+          
+          // Count confirmed bookings for this car overlapping with search dates
+          const conflictingBookings = publicBookings.filter(b => {
+              if (b.car_id !== car.id) return false;
+              const bStart = new Date(b.start_date).getTime();
+              const bEnd = new Date(b.end_date).getTime();
+              return (searchStart <= bEnd && bStart <= searchEnd);
+          });
+
+          // If conflicts >= totalStock, car is unavailable
+          if (conflictingBookings.length >= (car.totalStock || 1)) {
+              return false; // Hide unavailable cars? Or show as sold out? Prompt implies "shown", let's hide unavailable to be cleaner, or show as sold out if user wants?
+              // Let's hide them to make "Search" feel like a filter.
+          }
+      }
+
+      return true;
+  });
 
   // --- Handlers ---
 
@@ -109,7 +160,6 @@ const App: React.FC = () => {
   const handleAuthSuccess = () => {
     setIsAuthModalOpen(false);
     showToast("Logged in successfully!");
-    // If they were trying to book a car, open the booking modal now
     if (selectedCar) {
       setIsBookingModalOpen(true);
     }
@@ -121,7 +171,7 @@ const App: React.FC = () => {
       if (res.success) {
         showToast("Car added successfully");
         setShowAddCarForm(false);
-        fetchData(); // Refresh list
+        fetchData(); 
       }
     } catch (e) {
       showToast("Failed to add car", "error");
@@ -155,7 +205,7 @@ const App: React.FC = () => {
       if (res.success) {
         showToast("Booking request sent!", "success");
         setIsBookingModalOpen(false);
-        fetchData(); // Refresh bookings
+        fetchData();
       }
     } catch (e) {
       showToast("Booking failed", "error");
@@ -223,32 +273,50 @@ const App: React.FC = () => {
                 // --- CUSTOMER VIEW ---
                 <div className="animate-fade-in space-y-8">
                   <Hero 
-                    onBrowseFleet={() => {}} 
-                    onShowHowItWorks={() => {}} 
                     slides={heroSlides} 
+                    onSearch={handleSearch}
                   />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
-                      {cars.length > 0 ? (
-                        cars.map((car, index) => (
-                          <CarCard
-                              key={car.id}
-                              car={car}
-                              viewMode={'customer'}
-                              bookedCount={0}
-                              onToggleStatus={() => {}}
-                              onDelete={() => {}}
-                              onBook={handleBookClick}
-                              onEditStock={() => {}}
-                              onViewGallery={() => {}}
-                              index={index}
-                          />
-                        ))
-                      ) : (
-                        <div className="col-span-full text-center py-20 text-gray-500">
-                           <p>No cars available at the moment. Please check back later.</p>
+                  
+                  {hasSearched ? (
+                     <div id="fleet-section">
+                        <CarFilters filters={filters} onFilterChange={handleFilterChange} resultCount={filteredCars.length} />
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
+                           {filteredCars.length > 0 ? (
+                              filteredCars.map((car, index) => (
+                                 <CarCard
+                                    key={car.id}
+                                    car={car}
+                                    viewMode={'customer'}
+                                    bookedCount={0} // Availability is filtered out by list, so remaining cars are effectively "available"
+                                    onToggleStatus={() => {}}
+                                    onDelete={() => {}}
+                                    onBook={handleBookClick}
+                                    onEditStock={() => {}}
+                                    onViewGallery={() => {}}
+                                    index={index}
+                                 />
+                              ))
+                           ) : (
+                              <div className="col-span-full text-center py-20 text-gray-500 bg-white rounded-3xl border border-gray-100">
+                                 <div className="text-4xl mb-4">😔</div>
+                                 <p className="text-lg font-bold">No cars available for these dates/filters.</p>
+                                 <p className="text-sm">Try changing your dates or filters.</p>
+                              </div>
+                           )}
                         </div>
-                      )}
-                  </div>
+                     </div>
+                  ) : (
+                     <div className="text-center py-20 bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-100 shadow-sm">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+                           📅
+                        </div>
+                        <h3 className="text-2xl font-black text-gray-900 mb-2">Ready to Drive?</h3>
+                        <p className="text-gray-500 max-w-md mx-auto">
+                           Please select your <strong>Pick-up Location</strong> and <strong>Travel Dates</strong> above to view available cars.
+                        </p>
+                     </div>
+                  )}
                 </div>
              ) : (
                 // --- OWNER VIEW (TABBED) ---
@@ -384,7 +452,8 @@ const App: React.FC = () => {
         onClose={() => setIsBookingModalOpen(false)}
         onConfirm={handleBooking}
         userProfile={user ? { name: user.name || '', phone: '' } : null}
-        existingBookings={[]}
+        existingBookings={[]} // Conflicts handled by filters now
+        prefillDates={{ start: searchCriteria.start, end: searchCriteria.end }} // Pass search dates
         paymentQrCode={qrCode}
       />
 
