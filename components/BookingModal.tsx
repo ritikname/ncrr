@@ -122,10 +122,18 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setUserLocation('');
       setAadharPhone('');
       setAltPhone('');
-      setStartDate(prefillDates?.start || '');
-      setEndDate(prefillDates?.end || '');
-      setTotalCost(0);
-      setDays(0);
+      
+      const s = prefillDates?.start || '';
+      const e = prefillDates?.end || '';
+      setStartDate(s);
+      setEndDate(e);
+      
+      // Calculate immediately if dates are present, otherwise 0
+      if (!s || !e) {
+          setTotalCost(0);
+          setDays(0);
+      }
+      
       setTransactionId('');
       setAadharFront(null);
       setAadharBack(null);
@@ -266,8 +274,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
       if (end >= start) {
         // Calculate difference in milliseconds
         const diffTime = Math.abs(end.getTime() - start.getTime());
-        // Add 1 to include the start day (e.g. 25th to 25th = 1 day)
-        // Use Math.round to handle potential DST offsets better than floor
+        // Use Math.round to safely handle any timezone offsets or DST changes
+        // Add 1 to include the start day (Inclusive counting)
         const dayCount = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1; 
 
         setDays(dayCount);
