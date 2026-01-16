@@ -408,15 +408,25 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
           const booking = await c.env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
           
           if (booking) {
+             // Helper for consistent Date Formatting (Manual to avoid Locale issues in Worker)
+             const formatDate = (dateStr: string) => {
+                try {
+                  const date = new Date(dateStr);
+                  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+                } catch (e) { return dateStr; }
+             };
+
              const emailPayload = {
                to_email: booking.user_email,
+               subject: `✅ Booking Confirmed: ${booking.car_name}`,
                customer_name: booking.customer_name,
                car_name: booking.car_name,
-               start_date: booking.start_date, 
-               end_date: booking.end_date,
-               pickup_location: booking.location,
-               total_cost: `₹${booking.total_cost}`,
-               advance_amount: `₹${booking.advance_amount}`,
+               start_date: formatDate(booking.start_date), 
+               end_date: formatDate(booking.end_date),
+               pickup_location: booking.location || "Delhi NCR",
+               total_cost: `₹${Number(booking.total_cost).toLocaleString('en-IN')}`,
+               advance_amount: `₹${Number(booking.advance_amount || 0).toLocaleString('en-IN')}`,
                ref_id: booking.transaction_id,
                owner_phone: "9870375798"
              };
