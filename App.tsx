@@ -19,6 +19,7 @@ import ResetPassword from './pages/ResetPassword';
 import { Car, ViewMode, Booking, HeroSlide, UserProfile } from './types';
 import { api } from './services/api';
 import { useAuth } from './context/AuthContext';
+import { STORAGE_KEYS } from './constants';
 
 type OwnerTab = 'fleet' | 'bookings' | 'users' | 'settings';
 
@@ -44,6 +45,12 @@ const App: React.FC = () => {
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Cleanup Legacy Storage (Fixes "ghost" buttons from previous versions)
+    localStorage.removeItem(STORAGE_KEYS.CARS);
+    localStorage.removeItem(STORAGE_KEYS.VIEW_MODE);
+  }, []);
 
   // Data Fetching Function
   const fetchData = async () => {
