@@ -53,7 +53,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   };
 
   return (
-    <div className="relative w-full mb-24 mx-auto group animate-fade-in">
+    <div className="relative w-full mb-[28rem] md:mb-24 mx-auto group animate-fade-in">
       
       {/* Slides Container */}
       <div className="relative h-[550px] w-full rounded-3xl overflow-hidden shadow-xl bg-black">
@@ -73,7 +73,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
             </div>
             
             {/* Content Overlay - Positioned Higher */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pb-20 px-4 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pb-24 md:pb-20 px-4 text-center">
                  <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tighter uppercase italic drop-shadow-2xl mb-4 transform translate-y-0 transition-transform duration-700">
                     {slide.title}
                 </h1>
@@ -85,8 +85,13 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         ))}
       </div>
 
-      {/* Search Widget - Positioned Overlapping Bottom */}
-      <div className="absolute left-0 right-0 -bottom-16 z-30 px-4 flex justify-center">
+      {/* Search Widget - Smart Positioning */}
+      {/* 
+         On Mobile: Using top-[100%] aligns the top of the widget to the bottom of the image.
+         -translate-y-12 pulls it up slightly to overlap. 
+         This ensures the widget grows DOWNWARDS without covering the hero image content.
+      */}
+      <div className="absolute left-0 right-0 top-[100%] -translate-y-12 md:-translate-y-1/2 z-30 px-4 flex justify-center">
           <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
