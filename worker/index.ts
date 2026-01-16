@@ -343,17 +343,22 @@ api.post('/bookings', authMiddleware, async (c) => {
     const licenseUrl = '';
     
     const id = crypto.randomUUID();
+
+    // Prevent SQL Bind Error by ensuring values are not undefined
+    const safeCarName = data.carName || 'Unknown Car';
+    const safeCarImage = data.carImage || '';
+
     await c.env.DB.prepare(`
       INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, data.carId, data.carName, data.carImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation).run();
+    `).bind(id, data.carId, safeCarName, safeCarImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation).run();
     
     if (c.env.GOOGLE_SCRIPT_URL) {
-      c.executionCtx.waitUntil(fetch(c.env.GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ type: 'new_booking', to_email: user.email, customer_name: data.customerName, car_name: data.carName }) }).catch(console.error));
+      c.executionCtx.waitUntil(fetch(c.env.GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ type: 'new_booking', to_email: user.email, customer_name: data.customerName, car_name: safeCarName }) }).catch(console.error));
     }
 
     // --- TELEGRAM NOTIFICATION ---
-    const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${data.carName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
+    const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
     c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
 
     return c.json({ success: true, bookingId: id });
@@ -405,6 +410,11 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
 
 // --- MOUNT API ---
 app.route('/api', api);
+
+// ADDED: Explicit 404 for API routes to prevent falling through to static assets
+app.all('/api/*', (c) => {
+  return c.json({ error: 'API Endpoint Not Found' }, 404);
+});
 
 // --- STATIC ASSETS & SPA FALLBACK ---
 app.get('/*', async (c) => {

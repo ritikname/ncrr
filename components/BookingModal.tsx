@@ -314,6 +314,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
       if (car) {
         onConfirm({
             carId: car.id,
+            carName: car.name,
+            carImage: car.imageBase64,
             customerName,
             customerPhone,
             email,
