@@ -217,6 +217,7 @@ api.post('/auth/login', async (c) => {
 
     const token = await sign({ 
       id: user.id, 
+      name: user.name, // ADDED: Ensure name is in token for display
       email: user.email, 
       role: role,
       exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
@@ -365,8 +366,19 @@ api.get('/bookings', authMiddleware, async (c) => {
   try {
     if (!c.env.DB) return c.json([]); 
     const user = c.get('user');
-    let query = user.role === 'owner' ? 'SELECT * FROM bookings ORDER BY created_at DESC' : 'SELECT * FROM bookings WHERE user_email = ? ORDER BY created_at DESC';
-    const { results } = await c.env.DB.prepare(query).bind(user.role === 'owner' ? undefined : user.email).all();
+    
+    // FIXED: Split query to prevent binding errors
+    let results;
+    if (user.role === 'owner') {
+       // Owner: No bind parameters needed for this query
+       const stmt = await c.env.DB.prepare('SELECT * FROM bookings ORDER BY created_at DESC').all();
+       results = stmt.results;
+    } else {
+       // Customer: Bind email parameter
+       const stmt = await c.env.DB.prepare('SELECT * FROM bookings WHERE user_email = ? ORDER BY created_at DESC').bind(user.email).all();
+       results = stmt.results;
+    }
+
     return c.json(results || []);
   } catch (e: any) {
     if (e.message.includes('no such table')) return c.json([]);
