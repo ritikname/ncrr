@@ -20,6 +20,8 @@ import { Car, ViewMode, Booking, HeroSlide, UserProfile } from './types';
 import { api } from './services/api';
 import { useAuth } from './context/AuthContext';
 
+type OwnerTab = 'fleet' | 'bookings' | 'users' | 'settings';
+
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('customer');
@@ -27,6 +29,10 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [usersList, setUsersList] = useState<(UserProfile & { joinedAt: number })[]>([]);
   
+  // Owner Dashboard State
+  const [ownerTab, setOwnerTab] = useState<OwnerTab>('fleet');
+  const [showAddCarForm, setShowAddCarForm] = useState(false);
+
   // Settings State
   const [qrCode, setQrCode] = useState<string>('');
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
@@ -107,10 +113,32 @@ const App: React.FC = () => {
       const res = await api.cars.add(formData);
       if (res.success) {
         showToast("Car added successfully");
+        setShowAddCarForm(false);
         fetchData(); // Refresh list
       }
     } catch (e) {
       showToast("Failed to add car", "error");
+    }
+  };
+
+  const handleToggleCarStatus = async (id: string, currentStatus: 'available' | 'sold') => {
+    try {
+      const newStatus = currentStatus === 'available' ? 'sold' : 'available';
+      await api.cars.updateStatus(id, newStatus);
+      showToast(`Car marked as ${newStatus}`);
+      fetchData();
+    } catch (e) {
+      showToast("Failed to update status", "error");
+    }
+  };
+
+  const handleDeleteCar = async (id: string) => {
+    try {
+      await api.cars.delete(id);
+      showToast("Car deleted successfully");
+      fetchData();
+    } catch (e) {
+      showToast("Failed to delete car", "error");
     }
   };
 
@@ -185,6 +213,7 @@ const App: React.FC = () => {
         <Route path="/" element={
            <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
              {viewMode === 'customer' || !user || user.role !== 'owner' ? (
+                // --- CUSTOMER VIEW ---
                 <div className="animate-fade-in space-y-8">
                   <Hero 
                     onBrowseFleet={() => {}} 
@@ -215,7 +244,8 @@ const App: React.FC = () => {
                   </div>
                 </div>
              ) : (
-                <div className="animate-fade-in space-y-12">
+                // --- OWNER VIEW (TABBED) ---
+                <div className="animate-fade-in space-y-8">
                    <div className="bg-black text-white p-6 rounded-3xl text-center flex flex-col items-center justify-center relative">
                       <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
                       <p className="opacity-70">Manage your fleet, users, and bookings.</p>
@@ -230,34 +260,105 @@ const App: React.FC = () => {
                       </button>
                    </div>
                    
-                   <AddCarForm onAddCar={handleAddCar} />
-                   
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      <div>
-                        <h3 className="text-xl font-bold mb-6 px-2 border-l-4 border-red-600">Recent Bookings</h3>
-                        <OwnerBookings 
-                            bookings={bookings} 
-                            onApprove={handleApproveBooking} 
-                            onReject={handleRejectBooking} 
-                        />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold mb-6 px-2 border-l-4 border-red-600">Registered Users</h3>
-                        <OwnerUsersList users={usersList} />
-                      </div>
+                   {/* TAB NAVIGATION */}
+                   <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40">
+                      {[
+                        { id: 'fleet', label: 'Fleet & Cars', icon: '🚗' },
+                        { id: 'bookings', label: 'Bookings', icon: '📅' },
+                        { id: 'users', label: 'Users', icon: '👥' },
+                        { id: 'settings', label: 'Settings', icon: '⚙️' }
+                      ].map((tab) => (
+                         <button
+                            key={tab.id}
+                            onClick={() => setOwnerTab(tab.id as OwnerTab)}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
+                               ownerTab === tab.id 
+                               ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' 
+                               : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                         >
+                            <span className="text-lg">{tab.icon}</span>
+                            <span className="hidden sm:inline">{tab.label}</span>
+                         </button>
+                      ))}
                    </div>
 
-                   <OwnerSettings 
-                        currentQrCode={qrCode}
-                        heroSlides={heroSlides}
-                        stats={{
-                          totalCars: cars.length,
-                          totalBookings: bookings.length,
-                          totalUsers: usersList.length
-                        }}
-                        onSave={handleSaveQr} 
-                        onSaveSlides={handleSaveSlides} 
-                   />
+                   {/* --- FLEET TAB --- */}
+                   {ownerTab === 'fleet' && (
+                      <div className="space-y-6 animate-fade-in">
+                         {/* Collapsible Add Car Form */}
+                         <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                            <button 
+                              onClick={() => setShowAddCarForm(!showAddCarForm)}
+                              className="w-full p-4 flex items-center justify-between text-left font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                               <span className="flex items-center gap-2">
+                                  <span className="bg-red-100 text-red-600 w-8 h-8 rounded-full flex items-center justify-center text-lg">+</span>
+                                  Add New Vehicle
+                               </span>
+                               <svg className={`w-5 h-5 transition-transform ${showAddCarForm ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            {showAddCarForm && (
+                               <div className="p-4 border-t border-gray-100">
+                                  <AddCarForm onAddCar={handleAddCar} />
+                               </div>
+                            )}
+                         </div>
+
+                         {/* Car Grid for Owners */}
+                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {cars.length > 0 ? (
+                                cars.map((car, index) => (
+                                  <CarCard
+                                      key={car.id}
+                                      car={car}
+                                      viewMode={'owner'}
+                                      bookedCount={0}
+                                      onToggleStatus={handleToggleCarStatus}
+                                      onDelete={handleDeleteCar}
+                                      onBook={() => {}}
+                                      onEditStock={() => {}}
+                                      onViewGallery={() => {}}
+                                      index={index}
+                                  />
+                                ))
+                            ) : (
+                                <div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200">
+                                   <p>Your fleet is empty. Add a car to get started.</p>
+                                </div>
+                            )}
+                         </div>
+                      </div>
+                   )}
+
+                   {/* --- BOOKINGS TAB --- */}
+                   {ownerTab === 'bookings' && (
+                      <OwnerBookings 
+                          bookings={bookings} 
+                          onApprove={handleApproveBooking} 
+                          onReject={handleRejectBooking} 
+                      />
+                   )}
+
+                   {/* --- USERS TAB --- */}
+                   {ownerTab === 'users' && (
+                      <OwnerUsersList users={usersList} />
+                   )}
+
+                   {/* --- SETTINGS TAB --- */}
+                   {ownerTab === 'settings' && (
+                      <OwnerSettings 
+                          currentQrCode={qrCode}
+                          heroSlides={heroSlides}
+                          stats={{
+                            totalCars: cars.length,
+                            totalBookings: bookings.length,
+                            totalUsers: usersList.length
+                          }}
+                          onSave={handleSaveQr} 
+                          onSaveSlides={handleSaveSlides} 
+                      />
+                   )}
                 </div>
              )}
            </main>

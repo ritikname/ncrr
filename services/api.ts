@@ -92,6 +92,10 @@ export const api = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
+    }).then(handleResponse),
+
+    delete: (id: string) => fetch(`${API_URL}/cars/${id}`, {
+        method: 'DELETE'
     }).then(handleResponse)
   },
   

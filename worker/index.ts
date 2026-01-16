@@ -329,6 +329,14 @@ api.patch('/cars/:id/status', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
+// ADDED: Delete Car Endpoint
+api.delete('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+  const id = c.req.param('id');
+  await c.env.DB.prepare('DELETE FROM cars WHERE uuid = ? OR id = ?').bind(id, id).run();
+  return c.json({ success: true });
+});
+
 // --- BOOKING ROUTES ---
 api.post('/bookings', authMiddleware, async (c) => {
   try {
