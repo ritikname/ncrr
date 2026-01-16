@@ -14,7 +14,8 @@ type Bindings = {
   ASSETS: any;
   JWT_SECRET: string;
   OWNER_EMAIL: string;
-  OWNER_PASSWORD_HASH: string;
+  OWNER_PASSWORD: string;      // ADDED: For plain text password
+  OWNER_PASSWORD_HASH: string; // KEEP: For hashed password (optional)
   GOOGLE_SCRIPT_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_OWNER_CHAT_ID: string;
@@ -64,7 +65,6 @@ const ownerMiddleware = async (c: any, next: any) => {
 // --- HELPER: Telegram Notification ---
 async function sendTelegramNotification(env: Bindings, message: string) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_OWNER_CHAT_ID) {
-    // console.warn('Telegram config missing');
     return;
   }
   const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -141,7 +141,6 @@ api.get('/init', async (c) => {
         updated_at INTEGER DEFAULT (unixepoch())
       )`)
     ]);
-    // Insert default settings row if not exists
     await c.env.DB.prepare(`INSERT OR IGNORE INTO settings (id, payment_qr, hero_slides) VALUES (1, '', '[]')`).run();
     
     return c.json({ success: true, message: "Database tables (including Settings) created successfully!" });
@@ -186,11 +185,19 @@ api.post('/auth/login', async (c) => {
 
     if (email === c.env.OWNER_EMAIL) {
       // Owner Authentication (Env Vars)
-      // DEMO MODE: Allow specific password directly OR check hash
-      let validOwner = password === 'ncrdrive@admin321';
-      
-      if (!validOwner && c.env.OWNER_PASSWORD_HASH) {
-         validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
+      let validOwner = false;
+
+      // 1. Check Plain Text Password (from Env Var)
+      if (c.env.OWNER_PASSWORD && password === c.env.OWNER_PASSWORD) {
+        validOwner = true;
+      } 
+      // 2. Check Hashed Password (from Env Var)
+      else if (c.env.OWNER_PASSWORD_HASH) {
+        validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
+      }
+      // 3. Fallback to hardcoded (optional, keep for safety)
+      else if (password === 'ncrdrive@admin321') {
+        validOwner = true;
       }
 
       if (!validOwner) return c.json({ error: 'Invalid credentials' }, 401);
