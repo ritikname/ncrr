@@ -16,6 +16,8 @@ type Bindings = {
   OWNER_EMAIL: string;
   OWNER_PASSWORD_HASH: string;
   GOOGLE_SCRIPT_URL: string;
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_OWNER_CHAT_ID: string;
 };
 
 type Variables = {
@@ -58,6 +60,27 @@ const ownerMiddleware = async (c: any, next: any) => {
   if (user?.role !== 'owner') return c.json({ error: 'Forbidden' }, 403);
   await next();
 };
+
+// --- HELPER: Telegram Notification ---
+async function sendTelegramNotification(env: Bindings, message: string) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_OWNER_CHAT_ID) {
+    // console.warn('Telegram config missing');
+    return;
+  }
+  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: env.TELEGRAM_OWNER_CHAT_ID,
+        text: message
+      })
+    });
+  } catch (e) {
+    console.error('Telegram Notification Failed:', e);
+  }
+}
 
 // --- DATABASE INIT ROUTE (Run this once via browser) ---
 api.get('/init', async (c) => {
@@ -307,7 +330,6 @@ api.post('/bookings', authMiddleware, async (c) => {
     const user = c.get('user');
     
     // R2 Disabled - Skipping Uploads
-    
     const aadharFrontUrl = '';
     const aadharBackUrl = '';
     const licenseUrl = '';
@@ -319,8 +341,13 @@ api.post('/bookings', authMiddleware, async (c) => {
     `).bind(id, data.carId, data.carName, data.carImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation).run();
     
     if (c.env.GOOGLE_SCRIPT_URL) {
-      fetch(c.env.GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ type: 'new_booking', to_email: user.email, customer_name: data.customerName, car_name: data.carName }) }).catch(console.error);
+      c.executionCtx.waitUntil(fetch(c.env.GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ type: 'new_booking', to_email: user.email, customer_name: data.customerName, car_name: data.carName }) }).catch(console.error));
     }
+
+    // --- TELEGRAM NOTIFICATION ---
+    const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${data.carName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
+    c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
+
     return c.json({ success: true, bookingId: id });
   } catch (e: any) {
     return c.json({ error: e.message || 'Booking failed' }, 500);
@@ -344,8 +371,16 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
   const id = c.req.param('id');
   const { status, isApproved } = await c.req.json();
+  
   if (status) await c.env.DB.prepare('UPDATE bookings SET status = ? WHERE id = ?').bind(status, id).run();
   if (isApproved !== undefined) await c.env.DB.prepare('UPDATE bookings SET is_approved = ? WHERE id = ?').bind(isApproved ? 1 : 0, id).run();
+  
+  // --- TELEGRAM NOTIFICATION ---
+  let msg = `🔄 Booking #${id.slice(0, 8)} Updated`;
+  if (status) msg += `\nStatus: ${status}`;
+  if (isApproved !== undefined) msg += `\nApproved: ${isApproved ? 'Yes' : 'No'}`;
+  c.executionCtx.waitUntil(sendTelegramNotification(c.env, msg));
+
   return c.json({ success: true });
 });
 
