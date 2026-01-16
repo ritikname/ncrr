@@ -28,150 +28,193 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="grid gap-6">
-        {bookings.map((booking) => {
-          const isCancelled = booking.status === 'cancelled';
-          const isExpanded = expandedId === booking.id;
-          const isApproved = booking.isApproved;
+    <div className="animate-fade-in space-y-8">
+      {bookings.map((booking) => {
+        const isCancelled = booking.status === 'cancelled';
+        const isExpanded = expandedId === booking.id;
+        const isApproved = booking.isApproved;
 
-          return (
-            <div key={booking.id} className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col transition-all ${isCancelled ? 'opacity-60 grayscale-[0.8]' : 'hover:shadow-md'}`}>
-              
-              <div className="flex flex-col lg:flex-row gap-6 items-start">
-                  {/* Car Image Thumbnail */}
-                  <div className="w-full lg:w-40 h-40 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 relative">
-                    <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-                    {isCancelled && (
-                      <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                        <span className="bg-white/80 backdrop-blur text-xs font-bold px-2 py-1 rounded text-gray-600">VOID</span>
-                      </div>
-                    )}
+        return (
+          <div key={booking.id} className={`bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden transition-all ${isCancelled ? 'opacity-60 grayscale-[0.8]' : 'hover:shadow-2xl'}`}>
+            
+            {/* --- HEADER SECTION --- */}
+            <div className="flex flex-col sm:flex-row border-b border-gray-100 bg-gray-50/50">
+               {/* Car Image (Left) */}
+               <div className="sm:w-1/3 md:w-48 h-48 sm:h-auto relative bg-gray-200">
+                  <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover absolute inset-0" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent sm:hidden"></div>
+                  <div className="absolute bottom-2 left-2 text-white font-bold text-lg sm:hidden drop-shadow-md">
+                     {booking.carName}
+                  </div>
+               </div>
+
+               {/* Header Info (Right) */}
+               <div className="p-6 flex-1 flex flex-col justify-between">
+                  <div className="flex justify-between items-start mb-4">
+                     <div>
+                        <div className="hidden sm:block">
+                           <h3 className="text-xl font-black text-gray-900 uppercase italic leading-tight">{booking.carName}</h3>
+                           <p className="text-xs text-gray-500 font-bold tracking-widest mt-1">REF: #{booking.id.slice(0,8).toUpperCase()}</p>
+                        </div>
+                     </div>
+                     <div className="flex flex-col items-end gap-2">
+                        {isCancelled ? (
+                           <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Cancelled</span>
+                        ) : (
+                           <>
+                              {isApproved ? (
+                                 <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                    Approved
+                                 </span>
+                              ) : (
+                                 <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide animate-pulse">Pending Action</span>
+                              )}
+                              <span className="text-xs font-medium text-gray-400">{new Date(booking.createdAt).toLocaleString()}</span>
+                           </>
+                        )}
+                     </div>
                   </div>
 
-                  {/* Main Info */}
-                  <div className="flex-1 min-w-0 w-full">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            {isCancelled ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Cancelled</span>
-                            ) : (
-                                <div className="flex gap-2">
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700">Paid</span>
-                                  {isApproved ? (
-                                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white flex items-center gap-1">
-                                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                       Approved
-                                     </span>
-                                  ) : (
-                                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-yellow-100 text-yellow-700 animate-pulse">Pending Approval</span>
-                                  )}
-                                </div>
-                            )}
-                            <span className="text-gray-400 text-xs">#{booking.id.slice(0,8)}</span>
-                        </div>
-                        <span className="text-xs text-gray-400">{new Date(booking.createdAt).toLocaleString()}</span>
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-gray-900 truncate mb-1">{booking.carName}</h3>
-                    
-                    {/* Basic Details Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 bg-gray-50 p-4 rounded-xl">
-                        <div>
-                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Customer</p>
-                            <p className="font-semibold text-gray-800">{booking.customerName}</p>
-                            <p className="text-sm text-gray-600">{booking.customerPhone}</p>
-                            <p className="text-xs text-gray-400">{booking.userEmail}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Dates & Pickup</p>
-                            <p className="font-semibold text-gray-800">{new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}</p>
-                            <div className="flex items-center gap-1 mt-1 text-red-600 font-medium text-sm">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                <span>{booking.location || 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Payment</p>
-                            <div className="flex items-center gap-2">
-                                <span className="text-green-600 font-bold text-sm">₹{booking.advanceAmount?.toLocaleString() || 0} Paid</span>
-                                <span className="text-gray-400 text-xs">(10% Adv)</span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5">Total: ₹{booking.totalCost.toLocaleString()}</p>
-                        </div>
-                    </div>
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-auto">
+                     <div>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Trip Start</span>
+                        <span className="text-sm font-bold text-gray-900">{new Date(booking.startDate).toLocaleDateString()}</span>
+                     </div>
+                     <div>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Trip End</span>
+                        <span className="text-sm font-bold text-gray-900">{new Date(booking.endDate).toLocaleDateString()}</span>
+                     </div>
+                     <div>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Total</span>
+                        <span className="text-sm font-bold text-gray-900">₹{booking.totalCost.toLocaleString()}</span>
+                     </div>
+                     <div>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Advance</span>
+                        <span className="text-sm font-bold text-green-600">₹{(booking.advanceAmount || 0).toLocaleString()}</span>
+                     </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-row lg:flex-col items-center lg:justify-center w-full lg:w-auto mt-2 lg:mt-0 pt-4 lg:pt-0 lg:border-l lg:border-gray-100 lg:pl-6 gap-3">
-                    
-                    {!isCancelled && !isApproved && (
-                      <button 
-                         onClick={() => onApprove(booking.id)}
-                         className="w-full lg:w-auto text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-3 rounded-xl transition-all whitespace-nowrap shadow-lg shadow-emerald-200 flex items-center justify-center gap-1"
-                      >
-                         <span>Approve</span>
-                      </button>
-                    )}
-
-                    <button 
-                      onClick={() => setExpandedId(isExpanded ? null : booking.id)}
-                      className="w-full lg:w-auto text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-3 rounded-xl transition-all whitespace-nowrap flex items-center justify-center gap-2"
-                    >
-                      {isExpanded ? 'Hide' : 'Details'}
-                    </button>
-
-                    {!isCancelled && (
-                      <button 
-                        onClick={() => {
-                            if(confirm('Reject booking?')) {
-                                onReject(booking.id);
-                            }
-                        }}
-                        className="w-full lg:w-auto text-xs font-bold text-red-500 hover:text-white border border-red-200 hover:bg-red-500 hover:border-red-500 px-4 py-3 rounded-xl transition-all whitespace-nowrap"
-                      >
-                        Reject
-                      </button>
-                    )}
-                  </div>
-              </div>
-
-              {/* EXPANDED DETAILS */}
-              {isExpanded && (
-                  <div className="mt-6 pt-6 border-t border-gray-100 animate-fade-in">
-                      <h4 className="font-bold text-gray-900 mb-4 uppercase text-sm tracking-wider">Uploaded Documents (KYC)</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          <div>
-                              <p className="text-xs font-bold text-gray-400 mb-2">Aadhar Front</p>
-                              <div className="bg-gray-100 rounded-lg overflow-hidden h-32 border border-gray-200">
-                                  {booking.aadharFront ? (
-                                      <img src={booking.aadharFront} alt="Aadhar Front" className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(booking.aadharFront)} />
-                                  ) : <span className="flex items-center justify-center h-full text-xs text-gray-400">Missing</span>}
-                              </div>
-                          </div>
-                          <div>
-                              <p className="text-xs font-bold text-gray-400 mb-2">Aadhar Back</p>
-                              <div className="bg-gray-100 rounded-lg overflow-hidden h-32 border border-gray-200">
-                                  {booking.aadharBack ? (
-                                      <img src={booking.aadharBack} alt="Aadhar Back" className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(booking.aadharBack)} />
-                                  ) : <span className="flex items-center justify-center h-full text-xs text-gray-400">Missing</span>}
-                              </div>
-                          </div>
-                          <div>
-                              <p className="text-xs font-bold text-gray-400 mb-2">License</p>
-                              <div className="bg-gray-100 rounded-lg overflow-hidden h-32 border border-gray-200">
-                                  {booking.licensePhoto ? (
-                                      <img src={booking.licensePhoto} alt="License" className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform" onClick={() => window.open(booking.licensePhoto)} />
-                                  ) : <span className="flex items-center justify-center h-full text-xs text-gray-400">Missing</span>}
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              )}
+               </div>
             </div>
-          );
-        })}
-      </div>
+
+            {/* --- DETAILS BODY --- */}
+            <div className="p-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Customer Info */}
+                  <div className="space-y-4">
+                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Customer Details</h4>
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold">
+                           {booking.customerName.charAt(0)}
+                        </div>
+                        <div>
+                           <p className="font-bold text-gray-900">{booking.customerName}</p>
+                           <p className="text-sm text-gray-500">{booking.userEmail}</p>
+                        </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div>
+                           <span className="block text-[10px] text-gray-400 font-bold uppercase">Phone</span>
+                           <span className="text-sm font-medium text-gray-900">{booking.customerPhone}</span>
+                        </div>
+                        <div>
+                           <span className="block text-[10px] text-gray-400 font-bold uppercase">Location</span>
+                           <span className="text-sm font-medium text-gray-900 truncate" title={booking.location || 'N/A'}>{booking.location || 'N/A'}</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Payment Info */}
+                  <div className="space-y-4">
+                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Payment & Security</h4>
+                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">
+                        <div className="flex justify-between">
+                           <span className="text-sm text-gray-600">Advance Paid (10%)</span>
+                           <span className="text-sm font-bold text-green-600">₹{(booking.advanceAmount || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                           <span className="text-sm text-gray-600">Remaining Balance</span>
+                           <span className="text-sm font-bold text-gray-900">₹{(booking.totalCost - (booking.advanceAmount || 0)).toLocaleString()}</span>
+                        </div>
+                        <div className="border-t border-gray-200 my-2 pt-2 flex justify-between">
+                           <span className="text-xs text-gray-500 uppercase font-bold">Transaction Ref</span>
+                           <span className="text-xs font-mono bg-white border px-2 py-0.5 rounded text-gray-700">{booking.transactionId}</span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Toggle for Documents */}
+               <button 
+                  onClick={() => setExpandedId(isExpanded ? null : booking.id)}
+                  className="mt-6 w-full flex items-center justify-center gap-2 py-2 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-wider"
+               >
+                  {isExpanded ? 'Hide Documents' : 'View KYC Documents'} 
+                  <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+               </button>
+
+               {/* Expanded Documents */}
+               {isExpanded && (
+                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200 animate-fade-in">
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[{label: 'Aadhar Front', src: booking.aadharFront}, {label: 'Aadhar Back', src: booking.aadharBack}, {label: 'License', src: booking.licensePhoto}].map((doc, idx) => (
+                           <div key={idx} className="group relative">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">{doc.label}</p>
+                              <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden border border-gray-200 relative cursor-pointer" onClick={() => doc.src && window.open(doc.src, '_blank')}>
+                                 {doc.src ? (
+                                    <>
+                                       <img src={doc.src} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={doc.label} />
+                                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                          <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                       </div>
+                                    </>
+                                 ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-300">
+                                       <svg className="w-8 h-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                       <span className="text-[10px]">Missing</span>
+                                    </div>
+                                 )}
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               )}
+            </div>
+
+            {/* --- ACTION FOOTER --- */}
+            <div className="bg-gray-50 border-t border-gray-100 p-4 flex gap-4 justify-end">
+               {!isCancelled && !isApproved && (
+                  <>
+                     <button 
+                        onClick={() => { if(confirm('Are you sure you want to REJECT this booking?')) onReject(booking.id); }}
+                        className="px-6 py-3 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-colors"
+                     >
+                        Reject Request
+                     </button>
+                     <button 
+                        onClick={() => onApprove(booking.id)}
+                        className="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all transform active:scale-95"
+                     >
+                        Approve Booking & Send Email
+                     </button>
+                  </>
+               )}
+               {isApproved && !isCancelled && (
+                  <button disabled className="px-6 py-3 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed">
+                     Booking Approved
+                  </button>
+               )}
+               {isCancelled && (
+                  <button disabled className="px-6 py-3 rounded-xl bg-gray-100 text-gray-400 font-bold text-sm cursor-not-allowed">
+                     Booking Cancelled
+                  </button>
+               )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

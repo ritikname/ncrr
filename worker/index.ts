@@ -353,11 +353,9 @@ api.post('/bookings', authMiddleware, async (c) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(id, data.carId, safeCarName, safeCarImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation).run();
     
-    if (c.env.GOOGLE_SCRIPT_URL) {
-      c.executionCtx.waitUntil(fetch(c.env.GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ type: 'new_booking', to_email: user.email, customer_name: data.customerName, car_name: safeCarName }) }).catch(console.error));
-    }
+    // REMOVED: Immediate email trigger. Now done in PATCH /bookings (Approval).
 
-    // --- TELEGRAM NOTIFICATION ---
+    // --- TELEGRAM NOTIFICATION (Owner Only) ---
     const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
     c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
 
@@ -396,8 +394,40 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
   const id = c.req.param('id');
   const { status, isApproved } = await c.req.json();
   
-  if (status) await c.env.DB.prepare('UPDATE bookings SET status = ? WHERE id = ?').bind(status, id).run();
-  if (isApproved !== undefined) await c.env.DB.prepare('UPDATE bookings SET is_approved = ? WHERE id = ?').bind(isApproved ? 1 : 0, id).run();
+  if (status) {
+    await c.env.DB.prepare('UPDATE bookings SET status = ? WHERE id = ?').bind(status, id).run();
+  }
+
+  // APPROVAL & EMAIL TRIGGER LOGIC
+  if (isApproved !== undefined) {
+      const isApproveVal = isApproved ? 1 : 0;
+      await c.env.DB.prepare('UPDATE bookings SET is_approved = ? WHERE id = ?').bind(isApproveVal, id).run();
+      
+      // If Approved, trigger the Confirmation Email to Customer
+      if (isApproved && c.env.GOOGLE_SCRIPT_URL) {
+          const booking = await c.env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
+          
+          if (booking) {
+             const emailPayload = {
+               to_email: booking.user_email,
+               customer_name: booking.customer_name,
+               car_name: booking.car_name,
+               start_date: booking.start_date, 
+               end_date: booking.end_date,
+               pickup_location: booking.location,
+               total_cost: `₹${booking.total_cost}`,
+               advance_amount: `₹${booking.advance_amount}`,
+               ref_id: booking.transaction_id,
+               owner_phone: "9870375798"
+             };
+             
+             c.executionCtx.waitUntil(fetch(c.env.GOOGLE_SCRIPT_URL, { 
+                method: 'POST', 
+                body: JSON.stringify(emailPayload) 
+             }).catch(console.error));
+          }
+      }
+  }
   
   // --- TELEGRAM NOTIFICATION ---
   let msg = `🔄 Booking #${id.slice(0, 8)} Updated`;
