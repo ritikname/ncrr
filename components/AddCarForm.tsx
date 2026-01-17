@@ -28,12 +28,37 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  // Helper: Compress Image for cars
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Reasonable max width for car listings (800px)
+                const MAX_WIDTH = 800; 
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                // 0.7 quality for good car visibility but lower size
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+            };
+            img.onerror = () => resolve("");
+        };
+        reader.onerror = () => resolve("");
     });
   };
 
@@ -44,9 +69,13 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
             alert('Please upload an image file');
             return;
         }
-        const base64 = await convertToBase64(f);
-        setMainImageBase64(base64);
-        setImagePreview(base64);
+        try {
+            const base64 = await compressImage(f);
+            setMainImageBase64(base64);
+            setImagePreview(base64);
+        } catch(e) {
+            alert("Error processing image");
+        }
     }
   };
 
@@ -59,9 +88,11 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.type.startsWith('image/')) {
-                const base64 = await convertToBase64(file);
-                newPreviews.push(base64);
-                newBase64s.push(base64);
+                try {
+                    const base64 = await compressImage(file);
+                    newPreviews.push(base64);
+                    newBase64s.push(base64);
+                } catch(e) {}
             }
         }
         setGalleryPreviews(prev => [...prev, ...newPreviews]);

@@ -78,6 +78,29 @@ Agreement & Signature
 I hereby declare that I have read and understood the above Terms & Conditions of NCR Drive Rental Cars. I agree to abide by all rules and accept full responsibility for the rented vehicle during my rental period.
 `;
 
+// Helper: Resize Base64 String directly (used for Car Image optimization)
+const resizeBase64 = (base64Str: string, maxWidth = 600, quality = 0.5): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height *= maxWidth / width;
+        width = maxWidth;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(base64Str); // Return original if fail
+  });
+};
+
 const BookingModal: React.FC<BookingModalProps> = ({ 
   car, isOpen, userProfile, paymentQrCode, existingBookings, prefillDates, onClose, onConfirm 
 }) => {
@@ -155,7 +178,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Reduced max width to 800px to keep payload small for mobile/D1
+                // Aggressive compression for mobile uploads
                 const MAX_WIDTH = 800; 
                 let width = img.width;
                 let height = img.height;
@@ -170,8 +193,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
-                // Aggressive compression (0.6) to ensure <100KB per image
-                resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+                // 0.5 Quality for very small file size
+                resolve(canvas.toDataURL('image/jpeg', 0.5)); 
             };
             img.onerror = () => {
                 resolve(""); // Fallback empty if fail
@@ -316,10 +339,21 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
     if (car) {
         try {
+            // FIX: Ensure car image is compressed before sending payload
+            // Use existing car image or compress it if it looks huge
+            let optimizedCarImage = car.imageBase64;
+            if (optimizedCarImage && optimizedCarImage.length > 50000) {
+               try {
+                 optimizedCarImage = await resizeBase64(optimizedCarImage, 400, 0.6);
+               } catch(e) {
+                 console.warn("Could not optimize car image for payload");
+               }
+            }
+
             await onConfirm({
                 carId: car.id,
                 carName: car.name,
-                carImage: car.imageBase64,
+                carImage: optimizedCarImage,
                 customerName,
                 customerPhone,
                 email,
@@ -336,7 +370,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
                 aadharBack,
                 licensePhoto,
                 securityDepositType,
-                securityDepositTransactionId: securityDepositType === '₹5,000 Cash' ? securityDepositUtr : undefined,
+                // Ensure null, not undefined, for database binding safety
+                securityDepositTransactionId: securityDepositType === '₹5,000 Cash' ? securityDepositUtr : null,
                 signature: signatureName
             });
             // If success, parent closes modal, component unmounts.
@@ -344,7 +379,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
             console.error("Booking error caught in modal:", e);
             alert("Booking Submission Failed. Please try again.");
         } finally {
-            // If failed (parent showed toast but didn't close), we reset button state so user can try again.
             setIsProcessing(false);
         }
     }
