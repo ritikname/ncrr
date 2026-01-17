@@ -1,5 +1,5 @@
 {
-  "name": "Copy of NCR Drive Car Rentals",
+  "name": "NCR Drive Car Rentals",
   "description": "Premium car rental platform for Delhi NCR.",
   "requestFramePermissions": [
     "geolocation"

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Booking } from '../types';
+import { sendWhatsAppNotification } from '../services/notification';
 
 interface OwnerBookingsProps {
   bookings: Booking[];
@@ -10,6 +11,15 @@ interface OwnerBookingsProps {
 
 const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApprove }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleWhatsAppClick = async (booking: Booking) => {
+    try {
+      const link = await sendWhatsAppNotification(booking);
+      window.open(link, '_blank');
+    } catch (e) {
+      alert("Could not generate WhatsApp link");
+    }
+  };
 
   if (bookings.length === 0) {
     return (
@@ -33,6 +43,14 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
         const isCancelled = booking.status === 'cancelled';
         const isExpanded = expandedId === booking.id;
         const isApproved = booking.isApproved;
+
+        // --- FINANCIAL CALCULATION LOGIC ---
+        const isCashDeposit = booking.securityDepositType === '₹5,000 Cash';
+        const securityDepositAmount = isCashDeposit ? 5000 : 0;
+        const bookingCost = booking.totalCost;
+        const totalPayable = bookingCost + securityDepositAmount;
+        const advancePaid = booking.advanceAmount || 0;
+        const balanceDue = totalPayable - advancePaid;
 
         return (
           <div key={booking.id} className={`bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden transition-all ${isCancelled ? 'opacity-60 grayscale-[0.8]' : 'hover:shadow-2xl'}`}>
@@ -87,12 +105,12 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                         <span className="text-sm font-bold text-gray-900">{new Date(booking.endDate).toLocaleDateString()}</span>
                      </div>
                      <div>
-                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Total</span>
-                        <span className="text-sm font-bold text-gray-900">₹{booking.totalCost.toLocaleString()}</span>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Balance Due</span>
+                        <span className="text-sm font-bold text-red-600">₹{balanceDue.toLocaleString()}</span>
                      </div>
                      <div>
-                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Advance</span>
-                        <span className="text-sm font-bold text-green-600">₹{(booking.advanceAmount || 0).toLocaleString()}</span>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase">Deposit Type</span>
+                        <span className="text-sm font-bold text-gray-900 truncate">{booking.securityDepositType || 'N/A'}</span>
                      </div>
                   </div>
                </div>
@@ -125,22 +143,42 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                      </div>
                   </div>
 
-                  {/* Payment Info */}
+                  {/* Payment Info - UPDATED WITH TOTAL CALCULATION */}
                   <div className="space-y-4">
-                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Payment & Security</h4>
+                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Payment Breakdown</h4>
                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">
                         <div className="flex justify-between">
-                           <span className="text-sm text-gray-600">Advance Paid (10%)</span>
-                           <span className="text-sm font-bold text-green-600">₹{(booking.advanceAmount || 0).toLocaleString()}</span>
+                           <span className="text-sm text-gray-600">Trip Cost</span>
+                           <span className="text-sm font-medium text-gray-900">₹{bookingCost.toLocaleString()}</span>
+                        </div>
+                        {isCashDeposit && (
+                            <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">Security Deposit (Cash)</span>
+                                <span className="text-sm font-medium text-gray-900">+ ₹{securityDepositAmount.toLocaleString()}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between border-t border-gray-200 pt-2">
+                           <span className="text-sm font-bold text-gray-900">Total Payable</span>
+                           <span className="text-sm font-bold text-gray-900">₹{totalPayable.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
-                           <span className="text-sm text-gray-600">Remaining Balance</span>
-                           <span className="text-sm font-bold text-gray-900">₹{(booking.totalCost - (booking.advanceAmount || 0)).toLocaleString()}</span>
+                           <span className="text-sm text-green-600">Advance Paid</span>
+                           <span className="text-sm font-bold text-green-600">- ₹{advancePaid.toLocaleString()}</span>
                         </div>
-                        <div className="border-t border-gray-200 my-2 pt-2 flex justify-between">
-                           <span className="text-xs text-gray-500 uppercase font-bold">Transaction Ref</span>
+                        <div className="flex justify-between bg-white p-2 rounded-lg border border-red-100">
+                           <span className="text-sm font-bold text-red-600">Balance to Collect</span>
+                           <span className="text-sm font-black text-red-600">₹{balanceDue.toLocaleString()}</span>
+                        </div>
+                        <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between">
+                           <span className="text-xs text-gray-500 uppercase font-bold">Advance Tx Ref</span>
                            <span className="text-xs font-mono bg-white border px-2 py-0.5 rounded text-gray-700">{booking.transactionId}</span>
                         </div>
+                        {booking.securityDepositTransactionId && (
+                           <div className="flex justify-between">
+                             <span className="text-xs text-gray-500 uppercase font-bold">Security Tx Ref</span>
+                             <span className="text-xs font-mono bg-white border px-2 py-0.5 rounded text-gray-700">{booking.securityDepositTransactionId}</span>
+                           </div>
+                        )}
                      </div>
                   </div>
                </div>
@@ -179,25 +217,39 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                            </div>
                         ))}
                      </div>
+                     <div className="mt-4">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Signature</p>
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 max-w-sm">
+                            {booking.signature ? <img src={booking.signature} alt="Signature" className="h-16 object-contain" /> : <span className="text-xs text-gray-400">Signed</span>}
+                        </div>
+                     </div>
                   </div>
                )}
             </div>
 
             {/* --- ACTION FOOTER --- */}
-            <div className="bg-gray-50 border-t border-gray-100 p-4 flex gap-4 justify-end">
+            <div className="bg-gray-50 border-t border-gray-100 p-4 flex gap-3 justify-end items-center flex-wrap">
+               <button
+                  onClick={() => handleWhatsAppClick(booking)}
+                  className="px-4 py-3 rounded-xl bg-[#25D366] text-white font-bold text-sm hover:bg-green-600 transition-colors flex items-center gap-2"
+               >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                  Open WhatsApp
+               </button>
+
                {!isCancelled && !isApproved && (
                   <>
                      <button 
                         onClick={() => { if(confirm('Are you sure you want to REJECT this booking?')) onReject(booking.id); }}
                         className="px-6 py-3 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-colors"
                      >
-                        Reject Request
+                        Reject
                      </button>
                      <button 
                         onClick={() => onApprove(booking.id)}
                         className="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all transform active:scale-95"
                      >
-                        Approve Booking & Send Email
+                        Approve & Send Email
                      </button>
                   </>
                )}
