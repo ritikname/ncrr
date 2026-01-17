@@ -199,16 +199,16 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                         {[{label: 'Aadhar Front', src: booking.aadharFront}, {label: 'Aadhar Back', src: booking.aadharBack}, {label: 'License', src: booking.licensePhoto}].map((doc, idx) => (
                            <div key={idx} className="group relative">
                               <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">{doc.label}</p>
-                              <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden border border-gray-200 relative cursor-pointer" onClick={() => doc.src && window.open(doc.src, '_blank')}>
+                              <div className="bg-gray-100 rounded-xl overflow-hidden border border-gray-200 relative cursor-pointer" onClick={() => doc.src && window.open(doc.src, '_blank')}>
                                  {doc.src ? (
                                     <>
-                                       <img src={doc.src} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={doc.label} />
-                                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                       <img src={doc.src} className="w-full h-auto object-contain max-h-[300px]" alt={doc.label} />
+                                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
                                           <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                        </div>
                                     </>
                                  ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-300">
+                                    <div className="flex flex-col items-center justify-center h-32 text-gray-300">
                                        <svg className="w-8 h-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                        <span className="text-[10px]">Missing</span>
                                     </div>
@@ -218,9 +218,13 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                         ))}
                      </div>
                      <div className="mt-4">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Signature</p>
-                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 max-w-sm">
-                            {booking.signature ? <img src={booking.signature} alt="Signature" className="h-16 object-contain" /> : <span className="text-xs text-gray-400">Signed</span>}
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Signature (Accepted Terms)</p>
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 max-w-sm">
+                            {booking.signature ? (
+                                <span className="font-serif italic text-xl text-gray-800">{booking.signature}</span>
+                            ) : (
+                                <span className="text-xs text-gray-400 italic">Signed Digitally</span>
+                            )}
                         </div>
                      </div>
                   </div>

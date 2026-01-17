@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Car, UserProfile, Booking } from '../types';
 
 interface BookingModalProps {
@@ -95,10 +95,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
   const [days, setDays] = useState(0);
   const [availabilityError, setAvailabilityError] = useState('');
   
-  // Step 2 State (T&C Signature)
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [signature, setSignature] = useState<string | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  // Step 2 State (Signature)
+  const [signatureName, setSignatureName] = useState('');
 
   // Step 3 State (Payment)
   const [transactionId, setTransactionId] = useState('');
@@ -128,7 +126,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setStartDate(s);
       setEndDate(e);
       
-      // Calculate immediately if dates are present, otherwise 0
       if (!s || !e) {
           setTotalCost(0);
           setDays(0);
@@ -140,62 +137,46 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setLicensePhoto(null);
       setSecurityDepositType('₹5,000 Cash');
       setSecurityDepositUtr('');
-      setSignature(null);
+      setSignatureName('');
       setStep(1);
       setIsProcessing(false);
       setAvailabilityError('');
-      // Clear canvas if it exists (needs delay for render)
-      setTimeout(() => clearSignature(), 100);
     }
   }, [isOpen, userProfile, prefillDates]);
 
-  // --- Signature Logic ---
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // --- Helper: Compress Image to avoid mobile crash ---
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1024; // Scale down large mobile photos
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
 
-    setIsDrawing(true);
-    const rect = canvas.getBoundingClientRect();
-    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
-    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
-    
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#000';
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Compress to JPEG 0.7 quality
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+            };
+        };
+    });
   };
 
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = ('touches' in e) ? e.touches[0].clientX - rect.left : (e as React.MouseEvent).clientX - rect.left;
-    const y = ('touches' in e) ? e.touches[0].clientY - rect.top : (e as React.MouseEvent).clientY - rect.top;
-
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing && canvasRef.current) {
-        setIsDrawing(false);
-        setSignature(canvasRef.current.toDataURL());
-    }
-  };
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx?.clearRect(0, 0, canvas.width, canvas.height);
-        setSignature(null);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string | null>>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressedBase64 = await compressImage(file);
+        setter(compressedBase64);
+      } catch(e) {
+        alert("Error processing image. Please try a different photo.");
+      }
     }
   };
 
@@ -238,15 +219,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
     );
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string | null>>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setter(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
   // --- Logic ---
   const checkConflicts = (start: string, end: string) => {
     if (!car || !start || !end) return false;
@@ -267,15 +239,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
   useEffect(() => {
     if (startDate && endDate && car) {
-      // Create explicit dates at midnight to avoid timezone offsets causing 1-day trips to be 0
       const start = new Date(startDate);
       const end = new Date(endDate);
       
       if (end >= start) {
-        // Calculate difference in milliseconds
         const diffTime = Math.abs(end.getTime() - start.getTime());
-        // Use Math.round to safely handle any timezone offsets or DST changes
-        // Add 1 to include the start day (Inclusive counting)
         const dayCount = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1; 
 
         setDays(dayCount);
@@ -298,8 +266,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
         if (checkConflicts(startDate, endDate)) return;
         setStep(2); // Go to T&C
     } else if (step === 2) {
-        if (!signature) {
-            alert("⚠️ Please sign the Terms & Conditions to accept.");
+        if (!signatureName.trim()) {
+            alert("⚠️ Please type your full name to sign the Terms & Conditions.");
             return;
         }
         setStep(3); // Go to Payment
@@ -348,7 +316,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
             licensePhoto,
             securityDepositType,
             securityDepositTransactionId: securityDepositType === '₹5,000 Cash' ? securityDepositUtr : undefined,
-            signature
+            signature: signatureName
         });
       }
     }, 1500);
@@ -414,7 +382,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                                <input type="text" placeholder="Name" value={customerName} readOnly className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm" />
                              </div>
                              <div>
-                               <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Phone <span className="text-black font-extrabold">(Please add WhatsApp Number)</span></label>
+                               <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Phone <span className="text-black font-extrabold">(WhatsApp)</span></label>
                                <input 
                                  type="text" 
                                  placeholder="Phone" 
@@ -449,29 +417,15 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     
                     <div>
                         <label className="block text-sm font-bold text-gray-900 mb-2">Digital Signature</label>
-                        <p className="text-[10px] text-gray-500 mb-2">Please sign in the box below to accept the terms.</p>
+                        <p className="text-[10px] text-gray-500 mb-2">Type your full name in the box below to sign and accept the Terms & Conditions.</p>
                         
-                        <div className="relative border-2 border-dashed border-gray-300 rounded-xl bg-white touch-none">
-                            <canvas 
-                                ref={canvasRef}
-                                width={400} 
-                                height={150}
-                                className="w-full h-[150px] rounded-xl cursor-crosshair"
-                                onMouseDown={startDrawing}
-                                onMouseMove={draw}
-                                onMouseUp={stopDrawing}
-                                onMouseLeave={stopDrawing}
-                                onTouchStart={startDrawing}
-                                onTouchMove={draw}
-                                onTouchEnd={stopDrawing}
-                            />
-                            <button 
-                                onClick={clearSignature}
-                                className="absolute top-2 right-2 text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded"
-                            >
-                                Clear
-                            </button>
-                        </div>
+                        <input 
+                            type="text"
+                            value={signatureName}
+                            onChange={(e) => setSignatureName(e.target.value)}
+                            placeholder="Type Full Name to Sign"
+                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl font-bold text-lg focus:border-black outline-none transition-colors"
+                        />
                     </div>
                 </div>
             )}
@@ -561,14 +515,14 @@ const BookingModal: React.FC<BookingModalProps> = ({
                                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Aadhar Front</label>
                                 <div className="relative h-24 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
                                     {aadharFront ? <img src={aadharFront} className="w-full h-full object-cover" /> : <span className="text-xs text-gray-400">+ Upload</span>}
-                                    <input type="file" className="absolute inset-0 opacity-0" onChange={(e) => handleFileChange(e, setAadharFront)} />
+                                    <input type="file" className="absolute inset-0 opacity-0" onChange={(e) => handleFileChange(e, setAadharFront)} accept="image/*" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Aadhar Back</label>
                                 <div className="relative h-24 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
                                     {aadharBack ? <img src={aadharBack} className="w-full h-full object-cover" /> : <span className="text-xs text-gray-400">+ Upload</span>}
-                                    <input type="file" className="absolute inset-0 opacity-0" onChange={(e) => handleFileChange(e, setAadharBack)} />
+                                    <input type="file" className="absolute inset-0 opacity-0" onChange={(e) => handleFileChange(e, setAadharBack)} accept="image/*" />
                                 </div>
                             </div>
                         </div>
@@ -576,7 +530,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Driver's License</label>
                             <div className="relative h-24 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
                                 {licensePhoto ? <img src={licensePhoto} className="w-full h-full object-cover" /> : <span className="text-xs text-gray-400">+ Upload</span>}
-                                <input type="file" className="absolute inset-0 opacity-0" onChange={(e) => handleFileChange(e, setLicensePhoto)} />
+                                <input type="file" className="absolute inset-0 opacity-0" onChange={(e) => handleFileChange(e, setLicensePhoto)} accept="image/*" />
                             </div>
                         </div>
                     </div>
@@ -589,10 +543,10 @@ const BookingModal: React.FC<BookingModalProps> = ({
             {step < 4 ? (
                 <button 
                     onClick={handleNext}
-                    disabled={step === 1 ? (days <= 0 || !!availabilityError) : (step === 2 ? !signature : !transactionId)}
+                    disabled={step === 1 ? (days <= 0 || !!availabilityError) : (step === 2 ? !signatureName : !transactionId)}
                     className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all ${
                         ((step === 1 && (days <= 0 || !!availabilityError)) || 
-                         (step === 2 && !signature) || 
+                         (step === 2 && !signatureName) || 
                          (step === 3 && !transactionId)) 
                          ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
                 >

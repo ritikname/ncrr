@@ -134,6 +134,7 @@ api.get('/init', async (c) => {
         location TEXT,
         security_deposit_type TEXT,
         security_deposit_transaction_id TEXT,
+        signature TEXT,
         created_at INTEGER DEFAULT (unixepoch())
       )`),
       c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS settings (
@@ -150,6 +151,7 @@ api.get('/init', async (c) => {
     // 3. Migrations (Try to add columns if they don't exist for existing DBs)
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE cars ADD COLUMN gallery_images TEXT").run(); } catch(e) {}
     
     return c.json({ success: true, message: "Database tables initialized and schemas updated." });
@@ -384,7 +386,7 @@ api.post('/bookings', authMiddleware, async (c) => {
     const data = await c.req.json();
     const user = c.get('user');
     
-    // R2 Disabled - Skipping Uploads, using what was sent (Base64) or placeholders
+    // R2 Disabled - Skipping Uploads, using what was sent (Base64)
     const aadharFrontUrl = data.aadharFront || '';
     const aadharBackUrl = data.aadharBack || '';
     const licenseUrl = data.licensePhoto || '';
@@ -394,11 +396,11 @@ api.post('/bookings', authMiddleware, async (c) => {
     const safeCarName = data.carName || 'Unknown Car';
     const safeCarImage = data.carImage || '';
 
-    // Insert with Security Deposit Fields
+    // Insert with Security Deposit Fields AND SIGNATURE
     await c.env.DB.prepare(`
-      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, data.carId, safeCarName, safeCarImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation, data.securityDepositType, data.securityDepositTransactionId).run();
+      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id, signature)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(id, data.carId, safeCarName, safeCarImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation, data.securityDepositType, data.securityDepositTransactionId, data.signature).run();
     
     // --- TELEGRAM NOTIFICATION (Owner Only) ---
     const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}\nDeposit: ${data.securityDepositType}`;
