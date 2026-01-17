@@ -74,6 +74,8 @@ export const api = {
       return cars.map((c: any) => ({
         ...c,
         imageBase64: c.image_url, 
+        // Parse gallery JSON string to array
+        galleryImages: c.gallery_images ? JSON.parse(c.gallery_images) : [],
         pricePerDay: c.price_per_day,
         totalStock: c.total_stock,
         fuelType: c.fuel_type,
@@ -81,10 +83,12 @@ export const api = {
       }));
     },
     
-    add: async (formData: FormData) => {
+    // Updated to accept raw data object instead of FormData
+    add: async (carData: any) => {
       return fetch(`${API_URL}/cars`, {
         method: 'POST',
-        body: formData, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(carData), 
       }).then(handleResponse);
     },
 
@@ -130,7 +134,10 @@ export const api = {
         userLocation: b.location,
         aadharFront: b.aadhar_front,
         aadharBack: b.aadhar_back,
-        licensePhoto: b.license_photo
+        licensePhoto: b.license_photo,
+        // Map new security fields
+        securityDepositType: b.security_deposit_type,
+        securityDepositTransactionId: b.security_deposit_transaction_id
       }));
     },
 

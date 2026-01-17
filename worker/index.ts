@@ -6,16 +6,14 @@ import { sign, verify } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 
 type D1Database = any;
-// type R2Bucket = any; // R2 Disabled
 
 type Bindings = {
   DB: D1Database;
-  // IMAGES_BUCKET: R2Bucket; // R2 Disabled
   ASSETS: any;
   JWT_SECRET: string;
   OWNER_EMAIL: string;
-  OWNER_PASSWORD: string;      // Plain text password from Env
-  OWNER_PASSWORD_HASH: string; // Hashed password from Env
+  OWNER_PASSWORD: string;      
+  OWNER_PASSWORD_HASH: string; 
   GOOGLE_SCRIPT_URL: string;
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_OWNER_CHAT_ID: string;
@@ -82,10 +80,11 @@ async function sendTelegramNotification(env: Bindings, message: string) {
   }
 }
 
-// --- DATABASE INIT ROUTE (Run this once via browser) ---
+// --- DATABASE INIT ROUTE ---
 api.get('/init', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
   try {
+    // 1. Create Tables
     await c.env.DB.batch([
       c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,6 +103,7 @@ api.get('/init', async (c) => {
         name TEXT NOT NULL,
         price_per_day INTEGER NOT NULL,
         image_url TEXT NOT NULL,
+        gallery_images TEXT,
         category TEXT,
         fuel_type TEXT,
         transmission TEXT,
@@ -132,6 +132,8 @@ api.get('/init', async (c) => {
         aadhar_back TEXT,
         license_photo TEXT,
         location TEXT,
+        security_deposit_type TEXT,
+        security_deposit_transaction_id TEXT,
         created_at INTEGER DEFAULT (unixepoch())
       )`),
       c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS settings (
@@ -141,9 +143,16 @@ api.get('/init', async (c) => {
         updated_at INTEGER DEFAULT (unixepoch())
       )`)
     ]);
-    await c.env.DB.prepare(`INSERT OR IGNORE INTO settings (id, payment_qr, hero_slides) VALUES (1, '', '[]')`).run();
     
-    return c.json({ success: true, message: "Database tables (including Settings) created successfully!" });
+    // 2. Insert Default Settings
+    await c.env.DB.prepare(`INSERT OR IGNORE INTO settings (id, payment_qr, hero_slides) VALUES (1, '', '[]')`).run();
+
+    // 3. Migrations (Try to add columns if they don't exist for existing DBs)
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE cars ADD COLUMN gallery_images TEXT").run(); } catch(e) {}
+    
+    return c.json({ success: true, message: "Database tables initialized and schemas updated." });
   } catch (e: any) {
     return c.json({ error: "Failed to init DB: " + e.message }, 500);
   }
@@ -180,7 +189,6 @@ api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
 api.get('/public/availability', async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
-      // Fetch confirmed bookings dates and car_ids to calculate availability on frontend
       const { results } = await c.env.DB.prepare(
           "SELECT car_id, start_date, end_date FROM bookings WHERE status != 'cancelled'"
       ).all();
@@ -198,20 +206,15 @@ api.post('/auth/login', async (c) => {
     let user;
     let role = 'customer';
 
-    // Normalize email for check
     const ownerEmail = c.env.OWNER_EMAIL ? c.env.OWNER_EMAIL.trim().toLowerCase() : '';
     const loginEmail = email ? email.trim().toLowerCase() : '';
     const isOwnerEmail = ownerEmail && loginEmail === ownerEmail;
 
     if (isOwnerEmail) {
-      // Owner Authentication (Env Vars)
       let validOwner = false;
-
-      // 1. Check Plain Text Password (from Env Var)
       if (c.env.OWNER_PASSWORD && password === c.env.OWNER_PASSWORD) {
         validOwner = true;
       } 
-      // 2. Check Hashed Password (from Env Var)
       else if (c.env.OWNER_PASSWORD_HASH) {
         try {
           validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
@@ -222,7 +225,6 @@ api.post('/auth/login', async (c) => {
       role = 'owner';
       user = { id: 0, name: 'Owner', email: c.env.OWNER_EMAIL, role: 'owner' };
     } else {
-      // Customer Authentication (D1 Database)
       if (!c.env.DB) {
         return c.json({ error: 'Database connection failed. Please check D1 configuration.' }, 500);
       }
@@ -232,7 +234,6 @@ api.post('/auth/login', async (c) => {
       const validPass = await bcrypt.compare(password, user.password_hash);
       if (!validPass) return c.json({ error: 'Invalid credentials' }, 401);
 
-      // Use DB role if present
       if (user.role) role = user.role;
     }
 
@@ -319,25 +320,27 @@ api.get('/cars', async (c) => {
 });
 
 api.get('/images/:key', async (c) => {
-  // R2 Disabled
   return c.text('R2 Disabled (Enable Billing to use Images)', 200);
 });
 
 api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
-  const formData = await c.req.parseBody();
   if (!c.env.DB) {
       return c.json({ error: 'Database not configured' }, 503);
   }
-  // R2 Disabled - Skipping upload
-  // const imageFile = formData['image'] as File;
-  
-  const imageUrl = ''; // Placeholder URL since R2 is disabled
+
+  // Changed from FormData to JSON to support Base64 strings directly
+  const body = await c.req.json();
+  const { name, price, image, gallery, fuelType, transmission, category, seats, rating, totalStock } = body;
   
   const uuid = crypto.randomUUID();
+  
+  // Convert gallery array to JSON string
+  const galleryJson = gallery ? JSON.stringify(gallery) : '[]';
+
   await c.env.DB.prepare(`
-    INSERT INTO cars (uuid, name, price_per_day, image_url, fuel_type, transmission, category, seats, rating, total_stock)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(uuid, formData['name'], formData['price'], imageUrl, formData['fuelType'], formData['transmission'], formData['category'], formData['seats'], formData['rating'], formData['total_stock']).run();
+    INSERT INTO cars (uuid, name, price_per_day, image_url, gallery_images, fuel_type, transmission, category, seats, rating, total_stock)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(uuid, name, price, image, galleryJson, fuelType, transmission, category, seats, rating, totalStock).run();
   
   return c.json({ success: true, id: uuid });
 });
@@ -350,7 +353,6 @@ api.patch('/cars/:id/status', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// ADDED: Full Car Update Endpoint
 api.patch('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
   const id = c.req.param('id');
@@ -367,7 +369,6 @@ api.patch('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// ADDED: Delete Car Endpoint
 api.delete('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
   const id = c.req.param('id');
@@ -383,26 +384,24 @@ api.post('/bookings', authMiddleware, async (c) => {
     const data = await c.req.json();
     const user = c.get('user');
     
-    // R2 Disabled - Skipping Uploads
-    const aadharFrontUrl = '';
-    const aadharBackUrl = '';
-    const licenseUrl = '';
+    // R2 Disabled - Skipping Uploads, using what was sent (Base64) or placeholders
+    const aadharFrontUrl = data.aadharFront || '';
+    const aadharBackUrl = data.aadharBack || '';
+    const licenseUrl = data.licensePhoto || '';
     
     const id = crypto.randomUUID();
 
-    // Prevent SQL Bind Error by ensuring values are not undefined
     const safeCarName = data.carName || 'Unknown Car';
     const safeCarImage = data.carImage || '';
 
+    // Insert with Security Deposit Fields
     await c.env.DB.prepare(`
-      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, data.carId, safeCarName, safeCarImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation).run();
+      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(id, data.carId, safeCarName, safeCarImage, user.email, data.customerName, data.customerPhone, data.startDate, data.endDate, data.totalCost, data.advanceAmount, data.transactionId, aadharFrontUrl, aadharBackUrl, licenseUrl, data.userLocation, data.securityDepositType, data.securityDepositTransactionId).run();
     
-    // REMOVED: Immediate email trigger. Now done in PATCH /bookings (Approval).
-
     // --- TELEGRAM NOTIFICATION (Owner Only) ---
-    const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
+    const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}\nDeposit: ${data.securityDepositType}`;
     c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
 
     return c.json({ success: true, bookingId: id });
@@ -416,14 +415,11 @@ api.get('/bookings', authMiddleware, async (c) => {
     if (!c.env.DB) return c.json([]); 
     const user = c.get('user');
     
-    // FIXED: Split query to prevent binding errors
     let results;
     if (user.role === 'owner') {
-       // Owner: No bind parameters needed for this query
        const stmt = await c.env.DB.prepare('SELECT * FROM bookings ORDER BY created_at DESC').all();
        results = stmt.results;
     } else {
-       // Customer: Bind email parameter
        const stmt = await c.env.DB.prepare('SELECT * FROM bookings WHERE user_email = ? ORDER BY created_at DESC').bind(user.email).all();
        results = stmt.results;
     }
@@ -444,17 +440,14 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
     await c.env.DB.prepare('UPDATE bookings SET status = ? WHERE id = ?').bind(status, id).run();
   }
 
-  // APPROVAL & EMAIL TRIGGER LOGIC
   if (isApproved !== undefined) {
       const isApproveVal = isApproved ? 1 : 0;
       await c.env.DB.prepare('UPDATE bookings SET is_approved = ? WHERE id = ?').bind(isApproveVal, id).run();
       
-      // If Approved, trigger the Confirmation Email to Customer
       if (isApproved && c.env.GOOGLE_SCRIPT_URL) {
           const booking = await c.env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
           
           if (booking) {
-             // Helper for consistent Date Formatting (Manual to avoid Locale issues in Worker)
              const formatDate = (dateStr: string) => {
                 try {
                   const date = new Date(dateStr);
@@ -485,7 +478,6 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
       }
   }
   
-  // --- TELEGRAM NOTIFICATION ---
   let msg = `🔄 Booking #${id.slice(0, 8)} Updated`;
   if (status) msg += `\nStatus: ${status}`;
   if (isApproved !== undefined) msg += `\nApproved: ${isApproved ? 'Yes' : 'No'}`;
@@ -494,15 +486,12 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// --- MOUNT API ---
 app.route('/api', api);
 
-// ADDED: Explicit 404 for API routes to prevent falling through to static assets
 app.all('/api/*', (c) => {
   return c.json({ error: 'API Endpoint Not Found' }, 404);
 });
 
-// --- STATIC ASSETS & SPA FALLBACK ---
 app.get('/*', async (c) => {
   try {
     const response = await c.env.ASSETS.fetch(c.req.raw);

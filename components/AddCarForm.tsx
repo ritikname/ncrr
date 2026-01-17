@@ -3,14 +3,18 @@ import React, { useState, useRef } from 'react';
 import { FuelType, Transmission, CarCategory } from '../types';
 
 interface AddCarFormProps {
-  onAddCar: (formData: FormData) => void;
+  onAddCar: (data: any) => void;
 }
 
 const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [mainImageBase64, setMainImageBase64] = useState<string>('');
+  
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [galleryImagesBase64, setGalleryImagesBase64] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(false);
   
   const [fuelType, setFuelType] = useState<FuelType>('Petrol');
@@ -22,51 +26,87 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) processFile(f);
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+    });
   };
 
-  const processFile = (f: File) => {
-    if (!f.type.startsWith('image/')) {
-      alert('Please upload an image file');
-      return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+        if (!f.type.startsWith('image/')) {
+            alert('Please upload an image file');
+            return;
+        }
+        const base64 = await convertToBase64(f);
+        setMainImageBase64(base64);
+        setImagePreview(base64);
     }
-    setFile(f);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(f);
+  };
+
+  const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+        const newPreviews: string[] = [];
+        const newBase64s: string[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                const base64 = await convertToBase64(file);
+                newPreviews.push(base64);
+                newBase64s.push(base64);
+            }
+        }
+        setGalleryPreviews(prev => [...prev, ...newPreviews]);
+        setGalleryImagesBase64(prev => [...prev, ...newBase64s]);
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    setGalleryPreviews(prev => prev.filter((_, i) => i !== index));
+    setGalleryImagesBase64(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !file || !totalStock) {
+    if (!name || !price || !mainImageBase64 || !totalStock) {
       alert('Please fill in all fields and provide the main image.');
       return;
     }
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('price', price);
-    formData.append('image', file); // Raw file for R2
-    formData.append('fuelType', fuelType);
-    formData.append('transmission', transmission);
-    formData.append('category', category);
-    formData.append('seats', seats.toString());
-    formData.append('rating', rating);
-    formData.append('totalStock', totalStock);
+    const carPayload = {
+        name,
+        price,
+        image: mainImageBase64,
+        gallery: galleryImagesBase64,
+        fuelType,
+        transmission,
+        category,
+        seats: seats.toString(),
+        rating,
+        totalStock
+    };
 
-    await onAddCar(formData);
+    await onAddCar(carPayload);
     setLoading(false);
 
     // Reset form
     setName('');
     setPrice('');
     setImagePreview(null);
-    setFile(null);
+    setMainImageBase64('');
+    setGalleryPreviews([]);
+    setGalleryImagesBase64([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
   return (
@@ -85,16 +125,14 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
       <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-6">
+             {/* Main Image */}
              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Main Thumbnail</label>
                 <div
                     className={`border-2 border-dashed rounded-2xl h-48 flex flex-col items-center justify-center text-center transition-all cursor-pointer relative overflow-hidden group ${
                         isDragging ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-400 hover:bg-gray-50'
                     }`}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-                    onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFile(e.dataTransfer.files?.[0]); }}
                     onClick={() => fileInputRef.current?.click()}
                 >
                     {imagePreview ? (
@@ -104,11 +142,37 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
                         </>
                     ) : (
                         <div className="space-y-2 p-4">
-                            <span className="text-sm text-gray-500">Main Photo</span>
+                            <span className="text-sm text-gray-500">Click to upload Main Photo</span>
                         </div>
                     )}
                     <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
+             </div>
+
+             {/* Gallery Images */}
+             <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Gallery Images</label>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                    {galleryPreviews.map((src, idx) => (
+                        <div key={idx} className="relative h-16 rounded-lg overflow-hidden group">
+                            <img src={src} className="w-full h-full object-cover" alt="gallery" />
+                            <button 
+                                type="button" 
+                                onClick={() => removeGalleryImage(idx)}
+                                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    ))}
+                    <div 
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-red-400"
+                    >
+                        <span className="text-2xl text-gray-400">+</span>
+                    </div>
+                </div>
+                <input ref={galleryInputRef} type="file" className="hidden" accept="image/*" multiple onChange={handleGalleryChange} />
              </div>
           </div>
 
@@ -169,7 +233,7 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
         
         <div className="pt-4 border-t border-gray-100">
              <button disabled={loading} type="submit" className="w-full bg-black hover:bg-gray-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all uppercase tracking-wider text-sm disabled:opacity-50">
-              {loading ? 'Uploading to Cloud...' : 'Add Vehicle'}
+              {loading ? 'Processing Images & Adding...' : 'Add Vehicle'}
             </button>
         </div>
       </form>
