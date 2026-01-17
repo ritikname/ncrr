@@ -88,6 +88,12 @@ export const api = {
       }).then(handleResponse);
     },
 
+    update: (id: string, data: any) => fetch(`${API_URL}/cars/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(handleResponse),
+
     updateStatus: (id: string, status: string) => fetch(`${API_URL}/cars/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

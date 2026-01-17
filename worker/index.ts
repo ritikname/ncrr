@@ -337,7 +337,7 @@ api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO cars (uuid, name, price_per_day, image_url, fuel_type, transmission, category, seats, rating, total_stock)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(uuid, formData['name'], formData['price'], imageUrl, formData['fuelType'], formData['transmission'], formData['category'], formData['seats'], formData['rating'], formData['totalStock']).run();
+  `).bind(uuid, formData['name'], formData['price'], imageUrl, formData['fuelType'], formData['transmission'], formData['category'], formData['seats'], formData['rating'], formData['total_stock']).run();
   
   return c.json({ success: true, id: uuid });
 });
@@ -347,6 +347,23 @@ api.patch('/cars/:id/status', authMiddleware, ownerMiddleware, async (c) => {
   const id = c.req.param('id');
   const { status } = await c.req.json();
   await c.env.DB.prepare('UPDATE cars SET status = ? WHERE uuid = ? OR id = ?').bind(status, id, id).run();
+  return c.json({ success: true });
+});
+
+// ADDED: Full Car Update Endpoint
+api.patch('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  
+  const { name, pricePerDay, category, fuelType, transmission, seats, rating, totalStock } = body;
+  
+  await c.env.DB.prepare(`
+    UPDATE cars 
+    SET name = ?, price_per_day = ?, category = ?, fuel_type = ?, transmission = ?, seats = ?, rating = ?, total_stock = ?
+    WHERE uuid = ? OR id = ?
+  `).bind(name, pricePerDay, category, fuelType, transmission, seats, rating, totalStock, id, id).run();
+  
   return c.json({ success: true });
 });
 

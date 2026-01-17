@@ -9,12 +9,12 @@ interface CarCardProps {
   onToggleStatus: (id: string, currentStatus: 'available' | 'sold') => void;
   onDelete: (id: string) => void;
   onBook: (car: Car) => void;
-  onEditStock: (id: string) => void;
-  onViewGallery: (car: Car) => void; // New prop
+  onEdit: (car: Car) => void;
+  onViewGallery: (car: Car) => void;
   index: number;
 }
 
-const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleStatus, onDelete, onBook, onEditStock, onViewGallery, index }) => {
+const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleStatus, onDelete, onBook, onEdit, onViewGallery, index }) => {
   const isOwner = viewMode === 'owner';
   
   // Dynamic Availability Calculation
@@ -88,10 +88,10 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onEditStock(car.id);
+                        onEdit(car);
                       }}
                       className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded p-0.5 transition-colors"
-                      title="Edit Stock Quantity"
+                      title="Edit Vehicle Details"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>

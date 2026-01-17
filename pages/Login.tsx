@@ -85,12 +85,6 @@ const Login = () => {
         <div className="mt-4 text-center text-sm space-y-3">
           <Link to="/forgot-password" className="block text-gray-500 hover:text-black">Forgot Password?</Link>
         </div>
-        
-        <div className="mt-6 pt-4 border-t border-gray-100 text-xs text-gray-400 text-center">
-            <p className="font-bold mb-1">Owner Demo Credentials:</p>
-            <p>Email: ncrdrivecar@gmail.com</p>
-            <p>Pass: ncrdrive@admin321</p>
-        </div>
       </div>
     </div>
   );
