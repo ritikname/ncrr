@@ -10,7 +10,7 @@ interface BookingModalProps {
   existingBookings: Booking[];
   prefillDates?: { start: string, end: string };
   onClose: () => void;
-  onConfirm: (bookingData: any) => void;
+  onConfirm: (bookingData: any) => Promise<void> | void; // Updated to allow Promise
 }
 
 const TERMS_TEXT = `
@@ -144,7 +144,6 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); 
-  // IMPORTANT: Only run on isOpen change to prevent inputs resetting while typing if userProfile updates in background
 
   // --- Helper: Compress Image to avoid mobile crash ---
   const compressImage = (file: File): Promise<string> => {
@@ -282,7 +281,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
   };
 
-  const handleFinalSubmit = (e: React.FormEvent) => {
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aadharFront || !aadharBack || !licensePhoto) {
         alert("⚠️ Please upload all required KYC documents (Aadhar & License).");
@@ -295,33 +294,43 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
 
     setIsProcessing(true);
-    setTimeout(() => {
-      if (car) {
-        onConfirm({
-            carId: car.id,
-            carName: car.name,
-            carImage: car.imageBase64,
-            customerName,
-            customerPhone,
-            email,
-            userLocation,
-            aadharPhone,
-            altPhone,
-            startDate,
-            endDate,
-            totalCost,
-            advanceAmount: totalCost * 0.10,
-            transactionId,
-            days,
-            aadharFront,
-            aadharBack,
-            licensePhoto,
-            securityDepositType,
-            securityDepositTransactionId: securityDepositType === '₹5,000 Cash' ? securityDepositUtr : undefined,
-            signature: signatureName
-        });
-      }
-    }, 1500);
+    
+    // Tiny delay for UX smoother transition
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (car) {
+        try {
+            await onConfirm({
+                carId: car.id,
+                carName: car.name,
+                carImage: car.imageBase64,
+                customerName,
+                customerPhone,
+                email,
+                userLocation,
+                aadharPhone,
+                altPhone,
+                startDate,
+                endDate,
+                totalCost,
+                advanceAmount: totalCost * 0.10,
+                transactionId,
+                days,
+                aadharFront,
+                aadharBack,
+                licensePhoto,
+                securityDepositType,
+                securityDepositTransactionId: securityDepositType === '₹5,000 Cash' ? securityDepositUtr : undefined,
+                signature: signatureName
+            });
+            // If success, parent closes modal, component unmounts.
+        } catch(e) {
+            console.error("Booking error caught in modal:", e);
+        } finally {
+            // If failed (parent showed toast but didn't close), we reset button state so user can try again.
+            setIsProcessing(false);
+        }
+    }
   };
 
   if (!isOpen || !car) return null;

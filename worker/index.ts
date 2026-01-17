@@ -396,6 +396,32 @@ api.post('/bookings', authMiddleware, async (c) => {
     const safeCarName = data.carName || 'Unknown Car';
     const safeCarImage = data.carImage || '';
 
+    // ENSURE TABLE EXISTS (Auto-fix if /init was skipped)
+    await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY,
+      car_id TEXT NOT NULL,
+      car_name TEXT,
+      car_image TEXT,
+      user_email TEXT NOT NULL,
+      customer_name TEXT,
+      customer_phone TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      total_cost INTEGER,
+      advance_amount INTEGER,
+      transaction_id TEXT,
+      status TEXT DEFAULT 'confirmed',
+      is_approved BOOLEAN DEFAULT 0,
+      aadhar_front TEXT,
+      aadhar_back TEXT,
+      license_photo TEXT,
+      location TEXT,
+      security_deposit_type TEXT,
+      security_deposit_transaction_id TEXT,
+      signature TEXT,
+      created_at INTEGER DEFAULT (unixepoch())
+    )`).run();
+
     // LAZY MIGRATION CHECK: Ensure columns exist before insert to prevent crashes on existing DBs
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
