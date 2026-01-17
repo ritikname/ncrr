@@ -10,7 +10,7 @@ interface BookingModalProps {
   existingBookings: Booking[];
   prefillDates?: { start: string, end: string };
   onClose: () => void;
-  onConfirm: (bookingData: any) => Promise<void> | void; // Updated to allow Promise
+  onConfirm: (bookingData: any) => Promise<void> | void;
 }
 
 const TERMS_TEXT = `
@@ -145,7 +145,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); 
 
-  // --- Helper: Compress Image to avoid mobile crash ---
+  // --- Helper: Compress Image to avoid mobile crash & reduce payload ---
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -155,17 +155,29 @@ const BookingModal: React.FC<BookingModalProps> = ({
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1024; // Scale down large mobile photos
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scaleSize;
+                // Reduced max width to 800px to keep payload small for mobile/D1
+                const MAX_WIDTH = 800; 
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
 
                 const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                // Compress to JPEG 0.7 quality
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+                ctx?.drawImage(img, 0, 0, width, height);
+                // Aggressive compression (0.6) to ensure <100KB per image
+                resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+            };
+            img.onerror = () => {
+                resolve(""); // Fallback empty if fail
             };
         };
+        reader.onerror = () => resolve("");
     });
   };
 
@@ -174,6 +186,10 @@ const BookingModal: React.FC<BookingModalProps> = ({
     if (file) {
       try {
         const compressedBase64 = await compressImage(file);
+        if (!compressedBase64) {
+             alert("Error reading image. Try another.");
+             return;
+        }
         setter(compressedBase64);
       } catch(e) {
         alert("Error processing image. Please try a different photo.");
@@ -296,7 +312,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
     setIsProcessing(true);
     
     // Tiny delay for UX smoother transition
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     if (car) {
         try {
@@ -326,6 +342,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
             // If success, parent closes modal, component unmounts.
         } catch(e) {
             console.error("Booking error caught in modal:", e);
+            alert("Booking Submission Failed. Please try again.");
         } finally {
             // If failed (parent showed toast but didn't close), we reset button state so user can try again.
             setIsProcessing(false);
