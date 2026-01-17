@@ -142,7 +142,9 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setIsProcessing(false);
       setAvailabilityError('');
     }
-  }, [isOpen, userProfile, prefillDates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); 
+  // IMPORTANT: Only run on isOpen change to prevent inputs resetting while typing if userProfile updates in background
 
   // --- Helper: Compress Image to avoid mobile crash ---
   const compressImage = (file: File): Promise<string> => {

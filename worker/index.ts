@@ -396,6 +396,11 @@ api.post('/bookings', authMiddleware, async (c) => {
     const safeCarName = data.carName || 'Unknown Car';
     const safeCarImage = data.carImage || '';
 
+    // LAZY MIGRATION CHECK: Ensure columns exist before insert to prevent crashes on existing DBs
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
+
     // Insert with Security Deposit Fields AND SIGNATURE
     await c.env.DB.prepare(`
       INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id, signature)
@@ -408,6 +413,7 @@ api.post('/bookings', authMiddleware, async (c) => {
 
     return c.json({ success: true, bookingId: id });
   } catch (e: any) {
+    console.error(e);
     return c.json({ error: e.message || 'Booking failed' }, 500);
   }
 });
