@@ -60,7 +60,7 @@ const ownerMiddleware = async (c: any, next: any) => {
   await next();
 };
 
-// --- HELPER: Telegram Notification ---
+// --- HELPER: Notifications ---
 async function sendTelegramNotification(env: Bindings, message: string) {
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_OWNER_CHAT_ID) {
     return;
@@ -77,6 +77,20 @@ async function sendTelegramNotification(env: Bindings, message: string) {
     });
   } catch (e) {
     console.error('Telegram Notification Failed:', e);
+  }
+}
+
+async function sendEmailViaScript(env: Bindings, payload: any) {
+  if (!env.GOOGLE_SCRIPT_URL) return;
+  try {
+    // Using text/plain to match common Google Apps Script web app patterns
+    await fetch(env.GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.error('Email Notification Failed:', e);
   }
 }
 
@@ -289,10 +303,77 @@ api.post('/auth/logout', (c) => {
 });
 
 api.post('/auth/forgot-password', async (c) => {
+  const { email } = await c.req.json();
+  
+  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  
+  // Return success even if user not found (security practice)
+  if (!user) {
+    return c.json({ success: true }); 
+  }
+
+  // Generate Token
+  const token = crypto.randomUUID();
+  const tokenHash = await bcrypt.hash(token, 10);
+  const expiresAt = Date.now() + (1000 * 60 * 60); // 1 Hour
+
+  // Store in DB
+  await c.env.DB.prepare(
+    'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE email = ?'
+  ).bind(tokenHash, expiresAt, email).run();
+
+  // Generate Link
+  const origin = c.req.header('origin') || new URL(c.req.url).origin;
+  const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
+
+  // 1. Send Email to User (via Google Script)
+  const emailBody = `Hello ${user.name},\n\nYou requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nThis link expires in 1 hour.`;
+  c.executionCtx.waitUntil(sendEmailViaScript(c.env, {
+    to_email: email,
+    subject: "NCR Drive - Password Reset",
+    message: emailBody, // Generic field
+    // Fallback fields for booking-specific scripts
+    customer_name: user.name,
+    car_name: "Password Reset Request",
+    ref_id: "RESET",
+    total_cost: "0"
+  }));
+
+  // 2. Send Admin Notification (Telegram)
+  const adminMsg = `🔐 *Password Reset Requested*\n\nUser: ${email}\nLink: ${resetLink}`;
+  c.executionCtx.waitUntil(sendTelegramNotification(c.env, adminMsg));
+
   return c.json({ success: true });
 });
 
 api.post('/auth/reset-password', async (c) => {
+  const { email, token, newPassword } = await c.req.json();
+  
+  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+
+  if (!user || !user.reset_token_expires || !user.reset_token_hash) {
+    return c.json({ error: 'Invalid or expired reset link' }, 400);
+  }
+
+  if (Date.now() > user.reset_token_expires) {
+    return c.json({ error: 'Reset link has expired' }, 400);
+  }
+
+  const isValid = await bcrypt.compare(token, user.reset_token_hash);
+  if (!isValid) {
+    return c.json({ error: 'Invalid reset token' }, 400);
+  }
+
+  const newPassHash = await bcrypt.hash(newPassword, 10);
+
+  await c.env.DB.prepare(
+    'UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL WHERE email = ?'
+  ).bind(newPassHash, email).run();
+
   return c.json({ success: true });
 });
 
@@ -452,6 +533,9 @@ api.post('/bookings', authMiddleware, async (c) => {
     const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}\nDeposit: ${data.securityDepositType}`;
     c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
 
+    // Try sending email if possible for booking confirmation
+    // ... code for booking email is usually handled in frontend services, but we could add it here if needed.
+
     return c.json({ success: true, bookingId: id });
   } catch (e: any) {
     console.error('Booking Insert Error:', e);
@@ -496,8 +580,20 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
       if (isApproved && c.env.GOOGLE_SCRIPT_URL) {
           const booking = await c.env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
           if (booking) {
-             // ... email logic (same as before)
-             // Simplified for brevity in this XML change block but logically unchanged
+             const emailPayload = {
+               to_email: booking.user_email,
+               customer_name: booking.customer_name,
+               ref_id: booking.transaction_id,
+               car_name: booking.car_name,
+               start_date: booking.start_date,
+               end_date: booking.end_date,
+               pickup_location: booking.location,
+               total_cost: `₹${booking.total_cost}`,
+               advance_amount: `₹${booking.advance_amount || 0}`,
+               owner_phone: "9870375798" // Hardcoded owner phone as fallback
+             };
+             
+             c.executionCtx.waitUntil(sendEmailViaScript(c.env, emailPayload));
           }
       }
   }
