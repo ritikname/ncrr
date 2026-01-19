@@ -329,16 +329,19 @@ api.post('/auth/forgot-password', async (c) => {
   const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
 
   // 1. Send Email to User (via Google Script)
-  const emailBody = `Hello ${user.name},\n\nYou requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nThis link expires in 1 hour.`;
+  // Mapping reset link to "pickup_location" because the Google Script template expects booking fields.
   c.executionCtx.waitUntil(sendEmailViaScript(c.env, {
     to_email: email,
-    subject: "NCR Drive - Password Reset",
-    message: emailBody, // Generic field
-    // Fallback fields for booking-specific scripts
+    subject: "Action Required: Password Reset",
     customer_name: user.name,
-    car_name: "Password Reset Request",
     ref_id: "RESET",
-    total_cost: "0"
+    car_name: "Password Reset Request",
+    start_date: "Reset Link:",
+    end_date: "Below",
+    pickup_location: resetLink, // Putting the link here ensures it appears in the booking table
+    total_cost: "0",
+    advance_amount: "0",
+    owner_phone: "System"
   }));
 
   // 2. Send Admin Notification (Telegram)
@@ -588,7 +591,7 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
                start_date: booking.start_date,
                end_date: booking.end_date,
                pickup_location: booking.location,
-               total_cost: `₹${booking.total_cost}`,
+               total_cost: `₹${booking.total_cost || 0}`,
                advance_amount: `₹${booking.advance_amount || 0}`,
                owner_phone: "9870375798" // Hardcoded owner phone as fallback
              };
