@@ -24,133 +24,92 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
 
   return (
     <div 
-      className={`group bg-white rounded-2xl border border-gray-100 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-red-600/30 hover:-translate-y-1 ${isSoldOut && !isOwner ? 'opacity-75 grayscale-[0.5]' : ''}`}
+      className={`relative bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 ${isSoldOut && !isOwner ? 'opacity-75 grayscale-[0.5]' : ''}`}
       style={{ animation: `fadeIn 0.5s ease-out ${index * 0.1}s backwards` }}
     >
-      
-      {/* Top Section: Image */}
-      <div 
-        className="relative aspect-[16/9] bg-gray-100 overflow-hidden cursor-pointer"
-        onClick={() => onViewGallery(car)}
-      >
-        <img 
-          src={car.imageBase64} 
-          alt={car.name} 
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-        {/* Status Badge (Top-Left) */}
-        <div className="absolute top-3 left-3 z-10">
-          {isSoldOut ? (
-             <span className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm uppercase tracking-wider">
-               Sold Out
-             </span>
-          ) : (
-             <span className="bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm uppercase tracking-wider flex items-center gap-1">
-               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-               Available
-             </span>
-          )}
-        </div>
-
-        {/* Rating Badge (Top-Right) */}
-        <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm px-2 py-1 rounded shadow-sm flex items-center border border-gray-100">
-           <svg className="w-3 h-3 text-yellow-500 mr-1 fill-current" viewBox="0 0 20 20">
-             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-           </svg>
-           <span className="text-xs font-bold text-gray-800">{car.rating || 4.5}</span>
-        </div>
-      </div>
-
-      {/* Middle Section: Details */}
-      <div className="p-5 flex-1 flex flex-col">
-        <div className="mb-4">
-          <span className="text-xs font-bold text-red-600 uppercase tracking-widest block mb-1">{car.category || 'Vehicle'}</span>
-          <h3 className="text-xl font-black text-gray-900 leading-tight group-hover:text-red-700 transition-colors line-clamp-1" title={car.name}>
-            {car.name}
-          </h3>
-        </div>
-
-        {/* Specs Grid */}
-        <div className="grid grid-cols-3 gap-0 border-t border-b border-gray-100 py-3 mb-4">
-          <div className="flex flex-col items-center justify-center text-center px-2">
-            <svg className="w-4 h-4 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{car.fuelType}</span>
-          </div>
-          <div className="flex flex-col items-center justify-center text-center px-2 border-l border-r border-gray-100">
-            <svg className="w-4 h-4 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-            </svg>
-            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{car.transmission === 'Automatic' ? 'Auto' : 'Manual'}</span>
-          </div>
-          <div className="flex flex-col items-center justify-center text-center px-2">
-            <svg className="w-4 h-4 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{car.seats} Seats</span>
-          </div>
-        </div>
-        
-        {/* Stock Indicator */}
-         <div className="flex items-center gap-2 mb-4">
-             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                    className={`h-full rounded-full transition-all duration-500 ${isSoldOut ? 'bg-red-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${Math.min(100, (availableStock / totalStock) * 100)}%` }}
-                ></div>
-             </div>
-             <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">{availableStock} Left</span>
-             {isOwner && (
-               <button 
-                onClick={(e) => { e.stopPropagation(); onEdit(car); }}
-                className="text-gray-400 hover:text-red-600 transition-colors"
-                title="Edit Details"
-               >
-                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-               </button>
-             )}
-         </div>
-
-        {/* Bottom Section */}
-        <div className="mt-auto">
-           <div className="flex items-end gap-1 mb-4">
-              <span className="text-2xl font-black text-gray-900">₹{car.pricePerDay.toLocaleString('en-IN')}</span>
-              <span className="text-xs font-bold text-gray-400 mb-1.5 uppercase">/ Day</span>
-           </div>
-
-           {isOwner ? (
-             <div className="grid grid-cols-2 gap-2">
-                <button
-                   onClick={() => onToggleStatus(car.id, car.status)}
-                   className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${!isSoldOut ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                >
-                   {isSoldOut ? 'Make Available' : 'Mark Sold'}
-                </button>
-                <button
-                   onClick={() => { if(confirm('Delete car?')) onDelete(car.id); }}
-                   className="py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold uppercase tracking-wider transition-colors"
-                >
-                   Delete
-                </button>
-             </div>
-           ) : (
-             <button
-                onClick={() => onBook(car)}
-                disabled={isSoldOut}
-                className={`w-full py-3 rounded-lg font-bold text-sm uppercase tracking-widest shadow-lg hover:shadow-xl transition-all active:scale-[0.98] ${
-                    isSoldOut 
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
-                    : 'bg-red-600 text-white hover:bg-red-700 shadow-red-600/30'
-                }`}
-             >
-                {isSoldOut ? 'Unavailable' : 'Book Now'}
-             </button>
+      {/* Top Row: Name and Category */}
+      <div className="flex justify-between items-start mb-2">
+        <div>
+           <h3 className="text-lg font-extrabold text-gray-900 leading-tight">{car.name}</h3>
+           {isOwner && (
+               <div className="flex gap-2 mt-1">
+                 <button onClick={() => onEdit(car)} className="text-xs text-blue-600 font-bold hover:underline">Edit</button>
+                 <button onClick={() => onDelete(car.id)} className="text-xs text-red-600 font-bold hover:underline">Delete</button>
+                 <button onClick={() => onToggleStatus(car.id, car.status)} className="text-xs text-green-600 font-bold hover:underline">{isSoldOut ? 'Restock' : 'Mark Sold'}</button>
+               </div>
            )}
         </div>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{car.category}</span>
       </div>
+
+      <div className="flex gap-4">
+        {/* Left Column: Image */}
+        <div 
+          className="w-32 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-xl cursor-pointer overflow-hidden"
+          onClick={() => onViewGallery(car)}
+        >
+             <img src={car.imageBase64} className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500" alt={car.name} />
+        </div>
+
+        {/* Right Column: Specs & Actions */}
+        <div className="flex-1 flex flex-col justify-between h-full min-h-[6rem]">
+           
+           {/* Row 1: Icons (Seats, Transmission, Fuel) */}
+           <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-600 font-medium mb-3 mt-1">
+              <div className="flex items-center gap-1.5" title={`${car.seats} Seater`}>
+                 <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                 </svg>
+                 <span>{car.seats} seater</span>
+              </div>
+              <div className="flex items-center gap-1.5" title={car.transmission}>
+                 <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                 </svg>
+                 <span>{car.transmission === 'Automatic' ? 'Auto' : 'Manual'}</span>
+              </div>
+              <div className="flex items-center gap-1.5" title={car.fuelType}>
+                 <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                 </svg>
+                 <span>{car.fuelType}</span>
+              </div>
+           </div>
+
+           {/* Row 2: Price & Action */}
+           <div className="flex items-end justify-between mt-auto">
+              <div className="flex items-baseline">
+                 <span className="text-xl font-black text-gray-900">₹{car.pricePerDay}</span>
+              </div>
+              
+              {isOwner ? (
+                <div className="text-[10px] font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                   {availableStock} Left
+                </div>
+              ) : (
+                <button
+                    onClick={() => onBook(car)}
+                    disabled={isSoldOut}
+                    className={`px-8 py-2 rounded-full font-bold text-sm shadow-lg transition-all active:scale-95 ${
+                        isSoldOut 
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
+                        : 'bg-[#FF4500] hover:bg-red-600 text-white shadow-orange-200'
+                    }`}
+                >
+                    {isSoldOut ? 'SOLD' : 'BOOK'}
+                </button>
+              )}
+           </div>
+
+        </div>
+      </div>
+      
+      {/* Stock Overlay for Owners (Optional Visual Aid) */}
+      {isOwner && availableStock === 0 && (
+         <div className="absolute top-4 right-4 bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded">
+            Out of Stock
+         </div>
+      )}
     </div>
   );
 };

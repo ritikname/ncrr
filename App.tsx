@@ -314,7 +314,8 @@ export const App: React.FC = () => {
                      <div id="fleet-section">
                         <CarFilters filters={filters} onFilterChange={handleFilterChange} resultCount={filteredCars.length} />
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
+                        {/* CHANGED: 1 column on mobile, 2 on medium, 3 on xl to suit horizontal cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
                            {filteredCars.length > 0 ? (
                               filteredCars.map((car, index) => (
                                  <CarCard
@@ -420,8 +421,8 @@ export const App: React.FC = () => {
                             )}
                          </div>
 
-                         {/* Car Grid for Owners */}
-                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                         {/* Car Grid for Owners (Updated for horizontal cards) */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {cars.length > 0 ? (
                                 cars.map((car, index) => (
                                   <CarCard
