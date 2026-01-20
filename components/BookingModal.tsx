@@ -289,7 +289,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
   const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.value;
     const today = getTodayString();
-    if (selected < today) {
+    if (selected && selected < today) {
         alert("You cannot select a past date.");
         setStartDate(today);
     } else {
@@ -300,7 +300,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.value;
     const minDate = startDate || getTodayString();
-    if (selected < minDate) {
+    if (selected && selected < minDate) {
         alert("Return date cannot be before pick-up date.");
         setEndDate('');
     } else {
@@ -457,34 +457,42 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
                     {/* Dates */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
+                        <div className="relative">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pick-up</label>
-                            <div className="relative w-full">
+                            <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3">
+                                {/* Visual Layer */}
+                                <span className={`text-sm ${startDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1`}>
+                                    {startDate || 'Select Date'}
+                                </span>
+                                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                
+                                {/* Invisible Input Layer */}
                                 <input 
                                     type="date" 
                                     min={getTodayString()} 
                                     value={startDate} 
                                     onChange={handleStartDateChange} 
-                                    className="w-full px-3 py-2 border rounded-lg text-sm appearance-none pr-8 relative z-10 bg-transparent cursor-pointer" 
+                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" 
                                 />
-                                <div className="absolute top-1/2 -translate-y-1/2 right-3 pointer-events-none text-gray-500 z-0">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                </div>
                             </div>
                         </div>
-                        <div>
+                        <div className="relative">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Return</label>
-                            <div className="relative w-full">
+                            <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3">
+                                {/* Visual Layer */}
+                                <span className={`text-sm ${endDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1`}>
+                                    {endDate || 'Select Date'}
+                                </span>
+                                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                
+                                {/* Invisible Input Layer */}
                                 <input 
                                     type="date" 
                                     min={startDate || getTodayString()} 
                                     value={endDate} 
                                     onChange={handleEndDateChange} 
-                                    className="w-full px-3 py-2 border rounded-lg text-sm appearance-none pr-8 relative z-10 bg-transparent cursor-pointer" 
+                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" 
                                 />
-                                <div className="absolute top-1/2 -translate-y-1/2 right-3 pointer-events-none text-gray-500 z-0">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                </div>
                             </div>
                         </div>
                     </div>

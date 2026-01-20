@@ -43,7 +43,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.value;
     const today = getTodayString();
-    if (selected < today) {
+    if (selected && selected < today) {
         alert("You cannot select a past date.");
         setStart(today);
     } else {
@@ -54,7 +54,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.value;
     const minDate = start || getTodayString();
-    if (selected < minDate) {
+    if (selected && selected < minDate) {
         alert("Return date cannot be before pick-up date.");
         setEnd('');
     } else {
@@ -121,7 +121,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
           <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center relative border border-gray-100 hover:border-red-200 transition-colors">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center relative border border-gray-100 hover:border-red-200 transition-colors h-[62px]">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Pick-up Point
@@ -130,7 +130,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <select 
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
-                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm appearance-none cursor-pointer pr-6 py-1"
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm appearance-none cursor-pointer pr-6 py-1 relative z-10"
                         >
                             <option value="" disabled>Select Station</option>
                             <option value="Hauz Khas Metro">Hauz Khas Metro</option>
@@ -143,40 +143,48 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                      </div>
                   </div>
 
-                  {/* Start Date */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative group">
+                  {/* Start Date - Invisible Overlay Method */}
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
-                     <div className="relative w-full">
-                        <input 
-                            type="date" 
-                            min={getTodayString()}
-                            value={start}
-                            onChange={handleStartDateChange}
-                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8 cursor-pointer"
-                        />
-                         {!start && <div className="absolute top-1/2 -translate-y-1/2 left-0 pointer-events-none text-sm font-bold text-gray-400 z-0">Select Date</div>}
-                        <div className="absolute top-1/2 -translate-y-1/2 right-0 pointer-events-none text-gray-500 z-0">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        </div>
+                     
+                     {/* Visual Layer (Behind) */}
+                     <div className="flex items-center justify-between w-full h-6">
+                        <span className={`text-sm font-bold ${start ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {start || 'Select Date'}
+                        </span>
+                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
+
+                     {/* Input Layer (Top, Invisible, Full Size) */}
+                     <input 
+                        type="date" 
+                        min={getTodayString()}
+                        value={start}
+                        onChange={handleStartDateChange}
+                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                     />
                   </div>
 
-                  {/* End Date */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative group">
+                  {/* End Date - Invisible Overlay Method */}
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
-                     <div className="relative w-full">
-                        <input 
-                            type="date" 
-                            min={start || getTodayString()}
-                            value={end}
-                            onChange={handleEndDateChange}
-                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8 cursor-pointer"
-                        />
-                        {!end && <div className="absolute top-1/2 -translate-y-1/2 left-0 pointer-events-none text-sm font-bold text-gray-400 z-0">Select Date</div>}
-                        <div className="absolute top-1/2 -translate-y-1/2 right-0 pointer-events-none text-gray-500 z-0">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        </div>
+                     
+                     {/* Visual Layer (Behind) */}
+                     <div className="flex items-center justify-between w-full h-6">
+                        <span className={`text-sm font-bold ${end ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {end || 'Select Date'}
+                        </span>
+                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
+
+                     {/* Input Layer (Top, Invisible, Full Size) */}
+                     <input 
+                        type="date" 
+                        min={start || getTodayString()}
+                        value={end}
+                        onChange={handleEndDateChange}
+                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                     />
                   </div>
 
                   {/* Submit */}
