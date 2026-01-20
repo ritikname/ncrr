@@ -199,6 +199,7 @@ api.get('/promos', authMiddleware, ownerMiddleware, async (c) => {
     const { results } = await c.env.DB.prepare('SELECT * FROM promo_codes ORDER BY created_at DESC').all();
     return c.json(results || []);
   } catch (e: any) {
+    if (e.message.includes('no such table')) return c.json([]);
     return c.json({ error: e.message }, 500);
   }
 });
@@ -209,12 +210,22 @@ api.post('/promos', authMiddleware, ownerMiddleware, async (c) => {
   const { code, percentage } = await c.req.json();
   const upperCode = code.toUpperCase().trim();
 
+  // Lazy Init Table to prevent "no such table" error on first use
+  try {
+     await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        percentage INTEGER NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch())
+      )`).run();
+  } catch(e) { console.error("Auto-create promo_codes failed", e); }
+
   try {
     await c.env.DB.prepare('INSERT INTO promo_codes (code, percentage) VALUES (?, ?)').bind(upperCode, percentage).run();
     return c.json({ success: true });
   } catch (e: any) {
     if (e.message.includes('UNIQUE')) return c.json({ error: 'Promo code already exists' }, 409);
-    return c.json({ error: 'Failed to create promo' }, 500);
+    return c.json({ error: 'Failed to create promo: ' + e.message }, 500);
   }
 });
 
@@ -232,6 +243,16 @@ api.post('/promos/validate', authMiddleware, async (c) => {
   const { code, email } = await c.req.json();
   const upperCode = code.toUpperCase().trim();
   const userEmail = email.toLowerCase().trim();
+
+  // Lazy Init Usage Table
+  try {
+    await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        promo_code TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch())
+      )`).run();
+  } catch(e) { console.error("Auto-create promo_usage failed", e); }
 
   // 1. Check if code exists
   const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
@@ -556,6 +577,14 @@ api.post('/bookings', authMiddleware, async (c) => {
         const upperCode = data.promoCode.toUpperCase().trim();
         const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
         if (promo) {
+           // Ensure Usage Table Exists
+           await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             promo_code TEXT NOT NULL,
+             user_email TEXT NOT NULL,
+             created_at INTEGER DEFAULT (unixepoch())
+           )`).run();
+
            // Check usage
            const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?')
               .bind(upperCode, user.email).first();
