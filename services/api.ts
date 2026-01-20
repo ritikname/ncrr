@@ -146,7 +146,11 @@ export const api = {
         advanceAmount: b.advance_amount,
         transactionId: b.transaction_id,
         isApproved: b.is_approved === 1,
-        userLocation: b.location,
+        // Map deprecated userLocation to db location for backward compat, but key data is in location
+        userLocation: b.location, 
+        location: b.location, // Explicitly map location
+        userGps: b.user_gps, // Map new user_gps column
+        
         aadharFront: b.aadhar_front,
         aadharBack: b.aadhar_back,
         licensePhoto: b.license_photo,

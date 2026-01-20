@@ -10,6 +10,7 @@ interface BookingModalProps {
   paymentQrCode?: string;
   existingBookings: Booking[];
   prefillDates?: { start: string, end: string };
+  prefillLocation?: string;
   onClose: () => void;
   onConfirm: (bookingData: any) => Promise<void> | void;
 }
@@ -48,7 +49,7 @@ Email: ncrdrivecar@gmail.com Contact: +91-9971143873
 
 6. Insurance & Liability
 - Vehicles are covered under comprehensive motor insurance as per law.
-- Insurance will not cover damages caused due to negligence, drunk driving, unauthorized driver, or illegal activities.
+- Insurance will not cover damages caused to negligence, drunk driving, unauthorized driver, or illegal activities.
 - Customer is liable to pay the deductible/excess amount in case of insurance claim.
 
 7. Traffic Rules & Fines
@@ -103,13 +104,17 @@ const resizeBase64 = (base64Str: string, maxWidth = 600, quality = 0.5): Promise
 };
 
 const BookingModal: React.FC<BookingModalProps> = ({ 
-  car, isOpen, userProfile, paymentQrCode, existingBookings, prefillDates, onClose, onConfirm 
+  car, isOpen, userProfile, paymentQrCode, existingBookings, prefillDates, prefillLocation, onClose, onConfirm 
 }) => {
   // Step 1 State
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [userLocation, setUserLocation] = useState('');
+  
+  // SEPARATED LOCATION FIELDS
+  const [pickupPoint, setPickupPoint] = useState(''); // The Station (Primary)
+  const [gpsLocation, setGpsLocation] = useState(''); // The User's GPS (Secondary)
+  
   const [aadharPhone, setAadharPhone] = useState('');
   const [altPhone, setAltPhone] = useState('');
   
@@ -156,8 +161,12 @@ const BookingModal: React.FC<BookingModalProps> = ({
     if (isOpen) {
       setCustomerName(userProfile?.name || '');
       setCustomerPhone(userProfile?.phone || '');
-      setEmail(userProfile?.email || ''); // Use email from profile if available
-      setUserLocation('');
+      setEmail(userProfile?.email || ''); 
+      
+      // Initialize Pickup Point from search, reset GPS
+      setPickupPoint(prefillLocation || '');
+      setGpsLocation('');
+      
       setAadharPhone('');
       setAltPhone('');
       
@@ -245,11 +254,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
   // --- Geolocation Handler ---
   const handleDetectLocation = () => {
     setLocLoading(true);
-    setUserLocation("Triangulating precise location...");
+    setGpsLocation("Triangulating precise location...");
     
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by this browser.");
-      setUserLocation("");
+      setGpsLocation("GPS Not Supported");
       setLocLoading(false);
       return;
     }
@@ -263,18 +272,18 @@ const BookingModal: React.FC<BookingModalProps> = ({
           const data = await response.json();
           if (data && data.display_name) {
              const parts = data.display_name.split(',').slice(0, 3).join(',');
-             setUserLocation(`${parts} [${preciseCoords}]`);
+             setGpsLocation(`${parts} [${preciseCoords}]`);
           } else {
-             setUserLocation(preciseCoords);
+             setGpsLocation(preciseCoords);
           }
         } catch (e) {
-          setUserLocation(preciseCoords);
+          setGpsLocation(preciseCoords);
         }
         setLocLoading(false);
       },
       (error) => {
         alert("Unable to fetch location. Please check permissions.");
-        setUserLocation(""); 
+        setGpsLocation("Permission Denied"); 
         setLocLoading(false);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -372,7 +381,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
   // --- Step Navigation ---
   const handleNext = () => {
     if (step === 1) {
-        if (!startDate || !endDate || days <= 0 || !customerName || !customerPhone || !email || !userLocation || !aadharPhone || !altPhone) {
+        if (!startDate || !endDate || days <= 0 || !customerName || !customerPhone || !email || !pickupPoint || !aadharPhone || !altPhone) {
             alert("⚠️ Please fill ALL contact and trip details before proceeding.");
             return;
         }
@@ -439,12 +448,18 @@ const BookingModal: React.FC<BookingModalProps> = ({
                 customerName,
                 customerPhone,
                 email,
-                userLocation,
+                
+                // --- Location Logic ---
+                // 'location' is main pickup point (Station) -> goes to DB & WhatsApp
+                // 'userGps' is fetched coordinates -> goes to DB for Owner Panel only
+                location: pickupPoint, 
+                userGps: gpsLocation, 
+                
                 aadharPhone,
                 altPhone,
                 startDate,
                 endDate,
-                totalCost: finalCost, // Store discounted cost as total cost? Or original? Usually final.
+                totalCost: finalCost, 
                 advanceAmount: finalAdvance,
                 transactionId,
                 days,
@@ -599,11 +614,37 @@ const BookingModal: React.FC<BookingModalProps> = ({
                         </div>
                         <input type="email" placeholder="Email ID" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
                         
-                        <div className="flex gap-2">
-                            <input type="text" placeholder="Exact Location & Coordinates" value={userLocation} onChange={(e) => setUserLocation(e.target.value)} disabled={locLoading} className={`w-full px-3 py-2 border rounded-lg text-sm ${locLoading ? 'bg-gray-50 text-gray-500' : 'bg-white'}`} />
-                            <button onClick={handleDetectLocation} disabled={locLoading} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1">
-                                {locLoading ? 'Triangulating' : '📍 Fetch GPS'}
-                            </button>
+                        {/* Pick-up Point (Station) */}
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pick-up Point (Station)</label>
+                            <input 
+                                type="text" 
+                                placeholder="e.g. Hauz Khas Metro" 
+                                value={pickupPoint} 
+                                onChange={(e) => setPickupPoint(e.target.value)} 
+                                className="w-full px-3 py-2 border rounded-lg bg-white text-sm" 
+                            />
+                        </div>
+
+                        {/* GPS Location (Separate) */}
+                        <div>
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Current Location (For KYC/Security)</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Tap button to fetch coordinates" 
+                                    value={gpsLocation} 
+                                    readOnly 
+                                    className={`w-full px-3 py-2 border rounded-lg text-xs font-mono ${locLoading ? 'bg-gray-100 text-gray-400' : 'bg-gray-50 text-gray-700'}`} 
+                                />
+                                <button 
+                                    onClick={handleDetectLocation} 
+                                    disabled={locLoading} 
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1"
+                                >
+                                    {locLoading ? 'Triangulating' : '📍 Fetch GPS'}
+                                </button>
+                            </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
@@ -613,7 +654,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     </div>  
                 </div>
             )}
-
+            
+            {/* ... other steps remain same ... */}
             {step === 2 && (
                 <div className="space-y-4 animate-fade-in">
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 h-64 overflow-y-auto text-xs text-gray-700 leading-relaxed font-medium">

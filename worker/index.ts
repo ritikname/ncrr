@@ -150,6 +150,7 @@ api.get('/init', async (c) => {
         aadhar_back TEXT,
         license_photo TEXT,
         location TEXT,
+        user_gps TEXT,
         security_deposit_type TEXT,
         security_deposit_transaction_id TEXT,
         signature TEXT,
@@ -187,6 +188,7 @@ api.get('/init', async (c) => {
     try { await c.env.DB.prepare("ALTER TABLE cars ADD COLUMN gallery_images TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN promo_code TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN discount_amount INTEGER").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN user_gps TEXT").run(); } catch(e) {}
     
     return c.json({ success: true, message: "Database tables initialized and schemas updated." });
   } catch (e: any) {
@@ -620,6 +622,7 @@ api.post('/bookings', authMiddleware, async (c) => {
       aadhar_back TEXT,
       license_photo TEXT,
       location TEXT,
+      user_gps TEXT,
       security_deposit_type TEXT,
       security_deposit_transaction_id TEXT,
       signature TEXT,
@@ -634,11 +637,12 @@ api.post('/bookings', authMiddleware, async (c) => {
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN promo_code TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN discount_amount INTEGER").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN user_gps TEXT").run(); } catch(e) {}
 
     // INSERT: Using "OR NULL" logic to prevent D1 bind errors on undefined values
     await c.env.DB.prepare(`
-      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id, signature, promo_code, discount_amount)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, user_gps, security_deposit_type, security_deposit_transaction_id, signature, promo_code, discount_amount)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, 
       data.carId, 
@@ -655,7 +659,8 @@ api.post('/bookings', authMiddleware, async (c) => {
       aadharFrontUrl, 
       aadharBackUrl, 
       licenseUrl, 
-      data.userLocation, 
+      data.location, 
+      data.userGps || null,
       data.securityDepositType || null, 
       data.securityDepositTransactionId || null, 
       data.signature || null,

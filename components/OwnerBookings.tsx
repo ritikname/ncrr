@@ -131,19 +131,26 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                            <p className="text-sm text-gray-500">{booking.userEmail}</p>
                         </div>
                      </div>
-                     <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                     {/* Location Block */}
+                     <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <div>
-                           <span className="block text-[10px] text-gray-400 font-bold uppercase">Phone</span>
+                           <span className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Phone</span>
                            <span className="text-sm font-medium text-gray-900">{booking.customerPhone}</span>
                         </div>
                         <div>
-                           <span className="block text-[10px] text-gray-400 font-bold uppercase">Location</span>
-                           <span className="text-sm font-medium text-gray-900 truncate" title={booking.location || 'N/A'}>{booking.location || 'N/A'}</span>
+                           <span className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Station/Pickup</span>
+                           <span className="text-sm font-medium text-gray-900 break-words leading-relaxed block">{booking.location || 'N/A'}</span>
                         </div>
+                        {booking.userGps && (
+                           <div className="border-t border-gray-200 pt-3 mt-1">
+                              <span className="block text-[10px] text-red-500 font-bold uppercase mb-1">User GPS (From Button)</span>
+                              <span className="text-xs font-mono text-gray-600 break-all bg-white p-2 rounded border border-gray-200 block">{booking.userGps}</span>
+                           </div>
+                        )}
                      </div>
                   </div>
 
-                  {/* Payment Info - UPDATED WITH TOTAL CALCULATION */}
+                  {/* Payment Info */}
                   <div className="space-y-4">
                      <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Payment Breakdown</h4>
                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">

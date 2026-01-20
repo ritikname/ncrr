@@ -34,7 +34,10 @@ export interface Booking {
   customerPhone: string;
   
   email: string;
-  userLocation: string;
+  userLocation: string; // Deprecated in favor of location, but kept for compat
+  location: string; // The Pickup Point (Station)
+  userGps?: string; // The Fetched GPS Location
+  
   aadharPhone: string;
   altPhone: string;
   
@@ -44,7 +47,7 @@ export interface Booking {
   advanceAmount: number;
   transactionId: string;
   days: number;
-  location: string; 
+  
   createdAt: number;
   status: 'confirmed' | 'completed' | 'cancelled';
   

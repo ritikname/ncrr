@@ -553,6 +553,7 @@ export const App: React.FC = () => {
         // Pass existing bookings to modal so it can double check conflicts inside the modal UI if needed
         existingBookings={publicBookings.map(b => ({ carId: b.car_id, startDate: b.start_date, endDate: b.end_date, status: 'confirmed' } as any))} 
         prefillDates={{ start: searchCriteria.start, end: searchCriteria.end }} // Pass search dates
+        prefillLocation={searchCriteria.location}
         paymentQrCode={qrCode}
       />
 
