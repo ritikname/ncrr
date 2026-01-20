@@ -91,8 +91,8 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
          -translate-y-12 pulls it up slightly to overlap. 
          This ensures the widget grows DOWNWARDS without covering the hero image content.
       */}
-      <div className="absolute left-0 right-0 top-[100%] -translate-y-12 md:-translate-y-1/2 z-30 px-4 flex justify-center">
-          <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100">
+      <div className="absolute left-0 right-0 top-[100%] -translate-y-12 md:-translate-y-1/2 z-40 px-4 flex justify-center">
+          <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
                   <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center relative border border-gray-100 hover:border-red-200 transition-colors">
@@ -104,7 +104,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <select 
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
-                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm appearance-none cursor-pointer pr-6"
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm appearance-none cursor-pointer pr-6 py-1"
                         >
                             <option value="" disabled>Select Station</option>
                             <option value="Hauz Khas Metro">Hauz Khas Metro</option>
@@ -118,27 +118,31 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* Start Date */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
                      <input 
                         type="date" 
                         min={new Date().toISOString().split('T')[0]}
                         value={start}
                         onChange={(e) => setStart(e.target.value)}
-                        className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm"
+                        className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10"
+                        style={{ WebkitAppearance: 'none' }}
                      />
+                     {!start && <div className="absolute bottom-3 left-3 pointer-events-none text-sm font-bold text-gray-400">Select Date</div>}
                   </div>
 
                   {/* End Date */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
                      <input 
                         type="date" 
                         min={start || new Date().toISOString().split('T')[0]}
                         value={end}
                         onChange={(e) => setEnd(e.target.value)}
-                        className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm"
+                        className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10"
+                        style={{ WebkitAppearance: 'none' }}
                      />
+                     {!end && <div className="absolute bottom-3 left-3 pointer-events-none text-sm font-bold text-gray-400">Select Date</div>}
                   </div>
 
                   {/* Submit */}
