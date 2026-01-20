@@ -129,29 +129,39 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   {/* Start Date */}
                   <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
-                     <input 
-                        type="date" 
-                        min={getTodayString()}
-                        value={start}
-                        onChange={(e) => setStart(e.target.value)}
-                        className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10"
-                        style={{ WebkitAppearance: 'none' }}
-                     />
-                     {!start && <div className="absolute bottom-3 left-3 pointer-events-none text-sm font-bold text-gray-400">Select Date</div>}
+                     <div className="relative w-full">
+                        <input 
+                            type="date" 
+                            min={getTodayString()}
+                            value={start}
+                            onChange={(e) => setStart(e.target.value)}
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8"
+                            style={{ WebkitAppearance: 'none' }}
+                        />
+                         {!start && <div className="absolute top-1/2 -translate-y-1/2 left-0 pointer-events-none text-sm font-bold text-gray-400 z-0">Select Date</div>}
+                        <div className="absolute top-1/2 -translate-y-1/2 right-0 pointer-events-none text-gray-500 z-0">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        </div>
+                     </div>
                   </div>
 
                   {/* End Date */}
                   <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
-                     <input 
-                        type="date" 
-                        min={start || getTodayString()}
-                        value={end}
-                        onChange={(e) => setEnd(e.target.value)}
-                        className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10"
-                        style={{ WebkitAppearance: 'none' }}
-                     />
-                     {!end && <div className="absolute bottom-3 left-3 pointer-events-none text-sm font-bold text-gray-400">Select Date</div>}
+                     <div className="relative w-full">
+                        <input 
+                            type="date" 
+                            min={start || getTodayString()}
+                            value={end}
+                            onChange={(e) => setEnd(e.target.value)}
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8"
+                            style={{ WebkitAppearance: 'none' }}
+                        />
+                        {!end && <div className="absolute top-1/2 -translate-y-1/2 left-0 pointer-events-none text-sm font-bold text-gray-400 z-0">Select Date</div>}
+                        <div className="absolute top-1/2 -translate-y-1/2 right-0 pointer-events-none text-gray-500 z-0">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        </div>
+                     </div>
                   </div>
 
                   {/* Submit */}
