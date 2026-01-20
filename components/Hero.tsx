@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HeroSlide } from '../types';
 
 interface HeroProps {
@@ -30,6 +30,9 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const [location, setLocation] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+
+  const startInputRef = useRef<HTMLInputElement>(null);
+  const endInputRef = useRef<HTMLInputElement>(null);
 
   // Helper for local date YYYY-MM-DD
   const getTodayString = () => {
@@ -81,6 +84,18 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         return;
     }
     onSearch({ location, start, end });
+  };
+
+  const openPicker = (ref: React.RefObject<HTMLInputElement>) => {
+    try {
+        if (ref.current && 'showPicker' in ref.current) {
+            (ref.current as any).showPicker();
+        } else {
+            ref.current?.focus();
+        }
+    } catch (e) {
+        console.log("Picker open failed", e);
+    }
   };
 
   return (
@@ -144,11 +159,14 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* Start Date - Invisible Overlay Method */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer">
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
+                  <div 
+                    onClick={() => openPicker(startInputRef)}
+                    className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
+                  >
+                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none">Pick-up Date</label>
                      
                      {/* Visual Layer (Behind) */}
-                     <div className="flex items-center justify-between w-full h-6">
+                     <div className="flex items-center justify-between w-full h-6 pointer-events-none">
                         <span className={`text-sm font-bold ${start ? 'text-gray-900' : 'text-gray-400'}`}>
                             {start || 'Select Date'}
                         </span>
@@ -157,20 +175,25 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
                      {/* Input Layer (Top, Invisible, Full Size) */}
                      <input 
+                        ref={startInputRef}
                         type="date" 
                         min={getTodayString()}
                         value={start}
                         onChange={handleStartDateChange}
                         className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                        style={{opacity: 0.01}} // Fix for iOS tap
                      />
                   </div>
 
                   {/* End Date - Invisible Overlay Method */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer">
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
+                  <div 
+                    onClick={() => openPicker(endInputRef)}
+                    className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
+                  >
+                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none">Return Date</label>
                      
                      {/* Visual Layer (Behind) */}
-                     <div className="flex items-center justify-between w-full h-6">
+                     <div className="flex items-center justify-between w-full h-6 pointer-events-none">
                         <span className={`text-sm font-bold ${end ? 'text-gray-900' : 'text-gray-400'}`}>
                             {end || 'Select Date'}
                         </span>
@@ -179,11 +202,13 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
                      {/* Input Layer (Top, Invisible, Full Size) */}
                      <input 
+                        ref={endInputRef}
                         type="date" 
                         min={start || getTodayString()}
                         value={end}
                         onChange={handleEndDateChange}
                         className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                        style={{opacity: 0.01}} // Fix for iOS tap
                      />
                   </div>
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Car, UserProfile, Booking } from '../types';
 
 interface BookingModalProps {
@@ -134,6 +134,9 @@ const BookingModal: React.FC<BookingModalProps> = ({
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
+
+  const startInputRef = useRef<HTMLInputElement>(null);
+  const endInputRef = useRef<HTMLInputElement>(null);
 
   // Helper for local date YYYY-MM-DD
   const getTodayString = () => {
@@ -415,6 +418,18 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
   };
 
+  const openPicker = (ref: React.RefObject<HTMLInputElement>) => {
+    try {
+        if (ref.current && 'showPicker' in ref.current) {
+            (ref.current as any).showPicker();
+        } else {
+            ref.current?.focus();
+        }
+    } catch (e) {
+        console.log("Picker open failed", e);
+    }
+  };
+
   if (!isOpen || !car) return null;
 
   const advanceAmount = Math.round(totalCost * 0.10);
@@ -459,39 +474,49 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="relative">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pick-up</label>
-                            <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3">
+                            <div 
+                                onClick={() => openPicker(startInputRef)}
+                                className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3 cursor-pointer"
+                            >
                                 {/* Visual Layer */}
-                                <span className={`text-sm ${startDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1`}>
+                                <span className={`text-sm ${startDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1 pointer-events-none`}>
                                     {startDate || 'Select Date'}
                                 </span>
-                                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <svg className="w-4 h-4 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 
                                 {/* Invisible Input Layer */}
                                 <input 
+                                    ref={startInputRef}
                                     type="date" 
                                     min={getTodayString()} 
                                     value={startDate} 
                                     onChange={handleStartDateChange} 
                                     className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" 
+                                    style={{opacity: 0.01}}
                                 />
                             </div>
                         </div>
                         <div className="relative">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Return</label>
-                            <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3">
+                            <div 
+                                onClick={() => openPicker(endInputRef)}
+                                className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3 cursor-pointer"
+                            >
                                 {/* Visual Layer */}
-                                <span className={`text-sm ${endDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1`}>
+                                <span className={`text-sm ${endDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1 pointer-events-none`}>
                                     {endDate || 'Select Date'}
                                 </span>
-                                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <svg className="w-4 h-4 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 
                                 {/* Invisible Input Layer */}
                                 <input 
+                                    ref={endInputRef}
                                     type="date" 
                                     min={startDate || getTodayString()} 
                                     value={endDate} 
                                     onChange={handleEndDateChange} 
-                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" 
+                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                                    style={{opacity: 0.01}} 
                                 />
                             </div>
                         </div>
