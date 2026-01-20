@@ -149,6 +149,8 @@ api.get('/init', async (c) => {
         security_deposit_type TEXT,
         security_deposit_transaction_id TEXT,
         signature TEXT,
+        promo_code TEXT,
+        discount_amount INTEGER,
         created_at INTEGER DEFAULT (unixepoch())
       )`),
       c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS settings (
@@ -156,6 +158,18 @@ api.get('/init', async (c) => {
         payment_qr TEXT,
         hero_slides TEXT,
         updated_at INTEGER DEFAULT (unixepoch())
+      )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        percentage INTEGER NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch())
+      )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        promo_code TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch())
       )`)
     ]);
     
@@ -167,12 +181,73 @@ api.get('/init', async (c) => {
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE cars ADD COLUMN gallery_images TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN promo_code TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN discount_amount INTEGER").run(); } catch(e) {}
     
     return c.json({ success: true, message: "Database tables initialized and schemas updated." });
   } catch (e: any) {
     return c.json({ error: "Failed to init DB: " + e.message }, 500);
   }
 });
+
+// --- PROMO CODE ROUTES ---
+
+// List Promos (Owner)
+api.get('/promos', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json([]);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM promo_codes ORDER BY created_at DESC').all();
+    return c.json(results || []);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Add Promo (Owner)
+api.post('/promos', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
+  const { code, percentage } = await c.req.json();
+  const upperCode = code.toUpperCase().trim();
+
+  try {
+    await c.env.DB.prepare('INSERT INTO promo_codes (code, percentage) VALUES (?, ?)').bind(upperCode, percentage).run();
+    return c.json({ success: true });
+  } catch (e: any) {
+    if (e.message.includes('UNIQUE')) return c.json({ error: 'Promo code already exists' }, 409);
+    return c.json({ error: 'Failed to create promo' }, 500);
+  }
+});
+
+// Delete Promo (Owner)
+api.delete('/promos/:id', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
+  const id = c.req.param('id');
+  await c.env.DB.prepare('DELETE FROM promo_codes WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
+});
+
+// Validate Promo (Customer)
+api.post('/promos/validate', authMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
+  const { code, email } = await c.req.json();
+  const upperCode = code.toUpperCase().trim();
+  const userEmail = email.toLowerCase().trim();
+
+  // 1. Check if code exists
+  const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
+  if (!promo) {
+    return c.json({ error: 'Invalid Promo Code' }, 404);
+  }
+
+  // 2. Check if user already used it
+  const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?').bind(upperCode, userEmail).first();
+  if (usage) {
+    return c.json({ error: 'You have already used this promo code' }, 400);
+  }
+
+  return c.json({ success: true, percentage: promo.percentage });
+});
+
 
 // --- SETTINGS ROUTES ---
 api.get('/settings', async (c) => {
@@ -476,6 +551,22 @@ api.post('/bookings', authMiddleware, async (c) => {
     const safeCarImage = data.carImage || '';
     const id = crypto.randomUUID();
 
+    // Verify Promo Code Validity Again (Server-side check)
+    if (data.promoCode) {
+        const upperCode = data.promoCode.toUpperCase().trim();
+        const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
+        if (promo) {
+           // Check usage
+           const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?')
+              .bind(upperCode, user.email).first();
+           if (usage) {
+              return c.json({ error: 'Promo code already used' }, 400);
+           }
+           // Record Usage
+           await c.env.DB.prepare('INSERT INTO promo_usage (promo_code, user_email) VALUES (?, ?)').bind(upperCode, user.email).run();
+        }
+    }
+
     // Ensure Tables Exist (Safety)
     await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS bookings (
       id TEXT PRIMARY KEY,
@@ -499,6 +590,8 @@ api.post('/bookings', authMiddleware, async (c) => {
       security_deposit_type TEXT,
       security_deposit_transaction_id TEXT,
       signature TEXT,
+      promo_code TEXT,
+      discount_amount INTEGER,
       created_at INTEGER DEFAULT (unixepoch())
     )`).run();
 
@@ -506,11 +599,13 @@ api.post('/bookings', authMiddleware, async (c) => {
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN promo_code TEXT").run(); } catch(e) {}
+    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN discount_amount INTEGER").run(); } catch(e) {}
 
     // INSERT: Using "OR NULL" logic to prevent D1 bind errors on undefined values
     await c.env.DB.prepare(`
-      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id, signature)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, security_deposit_type, security_deposit_transaction_id, signature, promo_code, discount_amount)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, 
       data.carId, 
@@ -530,15 +625,19 @@ api.post('/bookings', authMiddleware, async (c) => {
       data.userLocation, 
       data.securityDepositType || null, 
       data.securityDepositTransactionId || null, 
-      data.signature || null
+      data.signature || null,
+      data.promoCode || null,
+      data.discountAmount || 0
     ).run();
     
     // Notification (Fire & Forget)
-    const teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}\nDeposit: ${data.securityDepositType}`;
+    let teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
+    if (data.promoCode) {
+        teleMsg += `\nPromo Applied: ${data.promoCode} (-₹${data.discountAmount})`;
+    }
+    teleMsg += `\nDeposit: ${data.securityDepositType}`;
+    
     c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
-
-    // Try sending email if possible for booking confirmation
-    // ... code for booking email is usually handled in frontend services, but we could add it here if needed.
 
     return c.json({ success: true, bookingId: id });
   } catch (e: any) {

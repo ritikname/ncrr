@@ -1,5 +1,5 @@
 
-import { Car, Booking } from '../types';
+import { Car, Booking, PromoCode } from '../types';
 
 // In production, relative URL works because Frontend & Backend are on same domain (or proxy)
 const API_URL = '/api';
@@ -66,6 +66,21 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }).then(handleResponse),
+  },
+  
+  promos: {
+    getAll: async (): Promise<PromoCode[]> => fetch(`${API_URL}/promos`).then(handleResponse),
+    create: (data: { code: string; percentage: number }) => fetch(`${API_URL}/promos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(handleResponse),
+    delete: (id: number) => fetch(`${API_URL}/promos/${id}`, { method: 'DELETE' }).then(handleResponse),
+    validate: (code: string, email: string) => fetch(`${API_URL}/promos/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, email })
+    }).then(handleResponse)
   },
   
   cars: {
@@ -137,7 +152,10 @@ export const api = {
         licensePhoto: b.license_photo,
         // Map new security fields
         securityDepositType: b.security_deposit_type,
-        securityDepositTransactionId: b.security_deposit_transaction_id
+        securityDepositTransactionId: b.security_deposit_transaction_id,
+        // Map new promo fields
+        promoCode: b.promo_code,
+        discountAmount: b.discount_amount
       }));
     },
 

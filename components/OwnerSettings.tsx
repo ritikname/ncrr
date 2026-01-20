@@ -1,6 +1,7 @@
 
-import React, { useState, useRef } from 'react';
-import { HeroSlide } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { HeroSlide, PromoCode } from '../types';
+import { api } from '../services/api';
 
 interface OwnerSettingsProps {
   currentQrCode?: string;
@@ -24,7 +25,60 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
   const [slideImage, setSlideImage] = useState<string | null>(null);
   const slideInputRef = useRef<HTMLInputElement>(null);
 
+  // Promo State
+  const [promos, setPromos] = useState<PromoCode[]>([]);
+  const [newPromoCode, setNewPromoCode] = useState('');
+  const [newPromoPercent, setNewPromoPercent] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+
   const [showDebug, setShowDebug] = useState(false);
+
+  useEffect(() => {
+    fetchPromos();
+  }, []);
+
+  const fetchPromos = async () => {
+    try {
+      const data = await api.promos.getAll();
+      setPromos(data);
+    } catch (e) {
+      console.error("Failed to fetch promos");
+    }
+  };
+
+  const handleAddPromo = async () => {
+    if (!newPromoCode || !newPromoPercent) {
+      alert("Please enter both code and percentage");
+      return;
+    }
+    const percent = parseInt(newPromoPercent);
+    if (isNaN(percent) || percent <= 0 || percent > 100) {
+      alert("Percentage must be between 1 and 100");
+      return;
+    }
+
+    setPromoLoading(true);
+    try {
+      await api.promos.create({ code: newPromoCode, percentage: percent });
+      setNewPromoCode('');
+      setNewPromoPercent('');
+      fetchPromos();
+    } catch (e: any) {
+      alert(e.message || "Failed to create promo");
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const handleDeletePromo = async (id: number) => {
+    if(!confirm("Are you sure you want to delete this promo code?")) return;
+    try {
+      await api.promos.delete(id);
+      fetchPromos();
+    } catch (e) {
+      alert("Failed to delete promo");
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,6 +165,72 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
             </div>
           )}
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        </div>
+      </div>
+
+      <hr className="border-gray-100" />
+
+      {/* Promo Codes Section */}
+      <div>
+         <div className="flex items-center gap-4 mb-6">
+          <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Promo Codes</h2>
+            <p className="text-gray-500 text-sm">Create discounts for your customers (One-time use per user).</p>
+          </div>
+        </div>
+
+        {/* Add Promo Form */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+          <input 
+            type="text" 
+            placeholder="Code (e.g. SAVE20)" 
+            value={newPromoCode}
+            onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())}
+            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none uppercase font-bold"
+          />
+          <div className="relative w-32">
+             <input 
+               type="number" 
+               placeholder="20" 
+               value={newPromoPercent}
+               onChange={(e) => setNewPromoPercent(e.target.value)}
+               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+             />
+             <span className="absolute right-3 top-3 text-gray-400 font-bold">%</span>
+          </div>
+          <button 
+            onClick={handleAddPromo}
+            disabled={promoLoading}
+            className="bg-black text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wide hover:bg-gray-800 transition-colors disabled:opacity-50"
+          >
+            {promoLoading ? 'Adding...' : 'Add Code'}
+          </button>
+        </div>
+
+        {/* Promo List */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+           {promos.map(promo => (
+              <div key={promo.id} className="bg-white border border-emerald-100 rounded-xl p-4 flex justify-between items-center shadow-sm">
+                 <div>
+                    <span className="block font-black text-emerald-600 text-lg">{promo.code}</span>
+                    <span className="text-sm text-gray-500">{promo.percentage}% Discount</span>
+                 </div>
+                 <button 
+                   onClick={() => handleDeletePromo(promo.id)}
+                   className="text-gray-400 hover:text-red-600 p-2"
+                 >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                 </button>
+              </div>
+           ))}
+           {promos.length === 0 && (
+             <div className="col-span-full text-center py-6 text-gray-400 italic">No active promo codes</div>
+           )}
         </div>
       </div>
 

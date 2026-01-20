@@ -56,6 +56,9 @@ export interface Booking {
   securityDepositType?: string;
   securityDepositTransactionId?: string; 
   signature?: string; 
+  
+  promoCode?: string;
+  discountAmount?: number;
 }
 
 export interface UserProfile {
@@ -70,4 +73,11 @@ export interface HeroSlide {
   imageUrl: string;
   title: string;
   description: string;
+}
+
+export interface PromoCode {
+  id: number;
+  code: string;
+  percentage: number;
+  createdAt: number;
 }

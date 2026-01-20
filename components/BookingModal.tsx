@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Car, UserProfile, Booking } from '../types';
+import { api } from '../services/api';
 
 interface BookingModalProps {
   car: Car | null;
@@ -121,8 +122,12 @@ const BookingModal: React.FC<BookingModalProps> = ({
   // Step 2 State (Signature)
   const [signatureName, setSignatureName] = useState('');
 
-  // Step 3 State (Payment)
+  // Step 3 State (Payment & Promo)
   const [transactionId, setTransactionId] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{code: string, percentage: number} | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState('');
 
   // Step 4 State (KYC)
   const [aadharFront, setAadharFront] = useState<string | null>(null);
@@ -151,7 +156,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
     if (isOpen) {
       setCustomerName(userProfile?.name || '');
       setCustomerPhone(userProfile?.phone || '');
-      setEmail('');
+      setEmail(userProfile?.email || ''); // Use email from profile if available
       setUserLocation('');
       setAadharPhone('');
       setAltPhone('');
@@ -176,6 +181,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
       setStep(1);
       setIsProcessing(false);
       setAvailabilityError('');
+
+      // Reset Promo
+      setPromoCode('');
+      setAppliedPromo(null);
+      setPromoError('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); 
@@ -331,6 +341,35 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
   }, [startDate, endDate, car]);
 
+  // --- Promo Code Logic ---
+  const handleApplyPromo = async () => {
+     if (!promoCode) return;
+     if (!email) {
+         setPromoError("Please enter email in step 1 to use promo codes.");
+         return;
+     }
+
+     setPromoLoading(true);
+     setPromoError('');
+     try {
+        const res = await api.promos.validate(promoCode, email);
+        setAppliedPromo({ code: promoCode, percentage: res.percentage });
+        setPromoCode(''); // Clear input after successful application
+     } catch (e: any) {
+        setPromoError(e.message || "Invalid or used promo code.");
+        setAppliedPromo(null);
+     } finally {
+        setPromoLoading(false);
+     }
+  };
+
+  const removePromo = () => {
+      setAppliedPromo(null);
+      setPromoCode('');
+      setPromoError('');
+  };
+
+  // --- Step Navigation ---
   const handleNext = () => {
     if (step === 1) {
         if (!startDate || !endDate || days <= 0 || !customerName || !customerPhone || !email || !userLocation || !aadharPhone || !altPhone) {
@@ -383,6 +422,15 @@ const BookingModal: React.FC<BookingModalProps> = ({
                  console.warn("Could not optimize car image for payload");
                }
             }
+            
+            // Calculate final financials
+            let finalCost = totalCost;
+            let discountAmount = 0;
+            if (appliedPromo) {
+               discountAmount = Math.round(totalCost * (appliedPromo.percentage / 100));
+               finalCost = totalCost - discountAmount;
+            }
+            const finalAdvance = Math.round(finalCost * 0.10);
 
             await onConfirm({
                 carId: car.id,
@@ -396,8 +444,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
                 altPhone,
                 startDate,
                 endDate,
-                totalCost,
-                advanceAmount: totalCost * 0.10,
+                totalCost: finalCost, // Store discounted cost as total cost? Or original? Usually final.
+                advanceAmount: finalAdvance,
                 transactionId,
                 days,
                 aadharFront,
@@ -406,7 +454,9 @@ const BookingModal: React.FC<BookingModalProps> = ({
                 securityDepositType,
                 // Ensure null, not undefined, for database binding safety
                 securityDepositTransactionId: securityDepositType === '₹5,000 Cash' ? securityDepositUtr : null,
-                signature: signatureName
+                signature: signatureName,
+                promoCode: appliedPromo?.code,
+                discountAmount: discountAmount
             });
             // If success, parent closes modal, component unmounts.
         } catch(e) {
@@ -432,7 +482,14 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
   if (!isOpen || !car) return null;
 
-  const advanceAmount = Math.round(totalCost * 0.10);
+  // Calculate costs dynamically based on promo state
+  let currentTotal = totalCost;
+  let discountAmount = 0;
+  if (appliedPromo) {
+     discountAmount = Math.round(totalCost * (appliedPromo.percentage / 100));
+     currentTotal = totalCost - discountAmount;
+  }
+  const advanceAmount = Math.round(currentTotal * 0.10);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -583,15 +640,58 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                         <div className="flex justify-between text-sm text-gray-600 mb-1">
                             <span>Total Trip Cost ({days} days)</span>
-                            <span className="line-through">₹{totalCost.toLocaleString()}</span>
+                            <span className={`${appliedPromo ? 'line-through text-red-400' : 'text-gray-900 font-bold'}`}>₹{totalCost.toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between items-center">
+                        {appliedPromo && (
+                             <div className="flex justify-between text-sm text-emerald-600 mb-1 font-bold">
+                                <span>Discount ({appliedPromo.code})</span>
+                                <span>-₹{discountAmount.toLocaleString()}</span>
+                             </div>
+                        )}
+                        {appliedPromo && (
+                            <div className="flex justify-between text-sm text-gray-900 mb-1 border-t border-red-100 pt-1">
+                                <span>Discounted Total</span>
+                                <span className="font-bold">₹{currentTotal.toLocaleString()}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center mt-2">
                             <span className="font-bold text-red-900">Advance (10%)</span>
                             <span className="font-bold text-2xl text-red-600">₹{advanceAmount.toLocaleString()}</span>
                         </div>
                     </div>
 
-                    <div className="text-center">
+                    {/* Promo Code Input */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Have a Promo Code?</label>
+                        <div className="flex gap-2">
+                           {appliedPromo ? (
+                               <div className="flex-1 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                                  <span className="text-emerald-700 font-bold tracking-wide">{appliedPromo.code} Applied!</span>
+                                  <button onClick={removePromo} className="text-emerald-500 hover:text-red-500 font-bold text-xs">REMOVE</button>
+                               </div>
+                           ) : (
+                               <>
+                                <input 
+                                    type="text" 
+                                    value={promoCode} 
+                                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                                    placeholder="Enter Code"
+                                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl outline-none uppercase font-bold text-sm"
+                                />
+                                <button 
+                                    onClick={handleApplyPromo}
+                                    disabled={promoLoading || !promoCode}
+                                    className="bg-black text-white px-5 rounded-xl font-bold text-sm hover:bg-gray-800 disabled:opacity-50"
+                                >
+                                    {promoLoading ? '...' : 'Apply'}
+                                </button>
+                               </>
+                           )}
+                        </div>
+                        {promoError && <p className="text-red-500 text-xs mt-1 font-bold">{promoError}</p>}
+                    </div>
+
+                    <div className="text-center pt-2">
                         <p className="text-sm text-gray-500 mb-3">Scan QR to Pay Advance</p>
                         <div className="border-2 border-dashed border-gray-200 rounded-xl p-2 inline-block bg-white">
                             {paymentQrCode ? <img src={paymentQrCode} alt="Payment QR" className="w-48 h-48 object-contain" /> : <div className="w-48 h-48 flex items-center justify-center text-xs">No QR</div>}
