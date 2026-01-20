@@ -205,8 +205,9 @@ api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
 api.get('/public/availability', async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
+      // NOTE: We now filter by is_approved = 1 so stock is only consumed when owner approves.
       const { results } = await c.env.DB.prepare(
-          "SELECT car_id, start_date, end_date FROM bookings WHERE status != 'cancelled'"
+          "SELECT car_id, start_date, end_date FROM bookings WHERE status != 'cancelled' AND is_approved = 1"
       ).all();
       return c.json(results || []);
   } catch (e) {

@@ -31,6 +31,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
+  // Helper for local date YYYY-MM-DD to fix iOS timezone issue
+  const getTodayString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Auto-scroll logic
   useEffect(() => {
     const timer = setInterval(() => {
@@ -122,7 +131,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
                      <input 
                         type="date" 
-                        min={new Date().toISOString().split('T')[0]}
+                        min={getTodayString()}
                         value={start}
                         onChange={(e) => setStart(e.target.value)}
                         className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10"
@@ -136,7 +145,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
                      <input 
                         type="date" 
-                        min={start || new Date().toISOString().split('T')[0]}
+                        min={start || getTodayString()}
                         value={end}
                         onChange={(e) => setEnd(e.target.value)}
                         className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10"
