@@ -26,6 +26,24 @@
       ::-webkit-scrollbar-track { background: #f1f1f1; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      
+      /* HIDE NATIVE DATE PICKER ICON BUT KEEP CLICKABILITY */
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        background: transparent;
+        bottom: 0;
+        color: transparent;
+        cursor: pointer;
+        height: auto;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: auto;
+        z-index: 10;
+      }
+      input[type="date"] {
+        position: relative;
+      }
     </style>
     <script type="importmap">
 {

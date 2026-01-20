@@ -31,13 +31,35 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
-  // Helper for local date YYYY-MM-DD to fix iOS timezone issue
+  // Helper for local date YYYY-MM-DD
   const getTodayString = () => {
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.value;
+    const today = getTodayString();
+    if (selected < today) {
+        alert("You cannot select a past date.");
+        setStart(today);
+    } else {
+        setStart(selected);
+    }
+  };
+
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.value;
+    const minDate = start || getTodayString();
+    if (selected < minDate) {
+        alert("Return date cannot be before pick-up date.");
+        setEnd('');
+    } else {
+        setEnd(selected);
+    }
   };
 
   // Auto-scroll logic
@@ -81,7 +103,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
             </div>
             
-            {/* Content Overlay - Positioned Higher */}
+            {/* Content Overlay */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pb-24 md:pb-20 px-4 text-center">
                  <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tighter uppercase italic drop-shadow-2xl mb-4 transform translate-y-0 transition-transform duration-700">
                     {slide.title}
@@ -94,12 +116,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         ))}
       </div>
 
-      {/* Search Widget - Smart Positioning */}
-      {/* 
-         On Mobile: Using top-[100%] aligns the top of the widget to the bottom of the image.
-         -translate-y-12 pulls it up slightly to overlap. 
-         This ensures the widget grows DOWNWARDS without covering the hero image content.
-      */}
+      {/* Search Widget */}
       <div className="absolute left-0 right-0 top-[100%] -translate-y-12 md:-translate-y-1/2 z-40 px-4 flex justify-center">
           <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -127,16 +144,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* Start Date */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative group">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Pick-up Date</label>
                      <div className="relative w-full">
                         <input 
                             type="date" 
                             min={getTodayString()}
                             value={start}
-                            onChange={(e) => setStart(e.target.value)}
-                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8"
-                            style={{ WebkitAppearance: 'none' }}
+                            onChange={handleStartDateChange}
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8 cursor-pointer"
                         />
                          {!start && <div className="absolute top-1/2 -translate-y-1/2 left-0 pointer-events-none text-sm font-bold text-gray-400 z-0">Select Date</div>}
                         <div className="absolute top-1/2 -translate-y-1/2 right-0 pointer-events-none text-gray-500 z-0">
@@ -146,16 +162,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* End Date */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative">
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative group">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Return Date</label>
                      <div className="relative w-full">
                         <input 
                             type="date" 
                             min={start || getTodayString()}
                             value={end}
-                            onChange={(e) => setEnd(e.target.value)}
-                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8"
-                            style={{ WebkitAppearance: 'none' }}
+                            onChange={handleEndDateChange}
+                            className="w-full bg-transparent outline-none font-bold text-gray-900 text-sm h-6 appearance-none relative z-10 pr-8 cursor-pointer"
                         />
                         {!end && <div className="absolute top-1/2 -translate-y-1/2 left-0 pointer-events-none text-sm font-bold text-gray-400 z-0">Select Date</div>}
                         <div className="absolute top-1/2 -translate-y-1/2 right-0 pointer-events-none text-gray-500 z-0">

@@ -286,6 +286,28 @@ const BookingModal: React.FC<BookingModalProps> = ({
     return false;
   };
 
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.value;
+    const today = getTodayString();
+    if (selected < today) {
+        alert("You cannot select a past date.");
+        setStartDate(today);
+    } else {
+        setStartDate(selected);
+    }
+  };
+
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.value;
+    const minDate = startDate || getTodayString();
+    if (selected < minDate) {
+        alert("Return date cannot be before pick-up date.");
+        setEndDate('');
+    } else {
+        setEndDate(selected);
+    }
+  };
+
   useEffect(() => {
     if (startDate && endDate && car) {
       const start = new Date(startDate);
@@ -442,9 +464,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
                                     type="date" 
                                     min={getTodayString()} 
                                     value={startDate} 
-                                    onChange={(e) => setStartDate(e.target.value)} 
-                                    className="w-full px-3 py-2 border rounded-lg text-sm appearance-none pr-8 relative z-10 bg-transparent" 
-                                    style={{ WebkitAppearance: 'none' }}
+                                    onChange={handleStartDateChange} 
+                                    className="w-full px-3 py-2 border rounded-lg text-sm appearance-none pr-8 relative z-10 bg-transparent cursor-pointer" 
                                 />
                                 <div className="absolute top-1/2 -translate-y-1/2 right-3 pointer-events-none text-gray-500 z-0">
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -458,9 +479,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
                                     type="date" 
                                     min={startDate || getTodayString()} 
                                     value={endDate} 
-                                    onChange={(e) => setEndDate(e.target.value)} 
-                                    className="w-full px-3 py-2 border rounded-lg text-sm appearance-none pr-8 relative z-10 bg-transparent" 
-                                    style={{ WebkitAppearance: 'none' }}
+                                    onChange={handleEndDateChange} 
+                                    className="w-full px-3 py-2 border rounded-lg text-sm appearance-none pr-8 relative z-10 bg-transparent cursor-pointer" 
                                 />
                                 <div className="absolute top-1/2 -translate-y-1/2 right-3 pointer-events-none text-gray-500 z-0">
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
