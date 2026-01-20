@@ -62,16 +62,20 @@ const ownerMiddleware = async (c: any, next: any) => {
 
 // --- HELPER: Notifications ---
 async function sendTelegramNotification(env: Bindings, message: string) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_OWNER_CHAT_ID) {
+  // Hardcoded Credentials as requested
+  const token = "8402658132:AAH7lQcAyF9x3fqa7yAyQqYrP2_PTARa3ts";
+  const chatId = "8258614791";
+
+  if (!token || !chatId) {
     return;
   }
-  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
     await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: env.TELEGRAM_OWNER_CHAT_ID,
+        chat_id: chatId,
         text: message
       })
     });

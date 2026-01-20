@@ -40,6 +40,7 @@ export const App: React.FC = () => {
   // Owner Dashboard State
   const [ownerTab, setOwnerTab] = useState<OwnerTab>('fleet');
   const [showAddCarForm, setShowAddCarForm] = useState(false);
+  const [ownerSearchTerm, setOwnerSearchTerm] = useState('');
 
   // Settings State
   const [qrCode, setQrCode] = useState<string>('');
@@ -159,6 +160,42 @@ export const App: React.FC = () => {
 
       return true;
   });
+
+  // --- Owner Filtering Logic ---
+  const getOwnerFilteredData = () => {
+    const q = ownerSearchTerm.toLowerCase().trim();
+    if (!q) return { cars, bookings, usersList };
+
+    if (ownerTab === 'fleet') {
+        const filteredCars = cars.filter(c => 
+            c.name.toLowerCase().includes(q) || 
+            c.category.toLowerCase().includes(q)
+        );
+        return { cars: filteredCars, bookings, usersList };
+    } 
+    else if (ownerTab === 'bookings') {
+        const filteredBookings = bookings.filter(b => 
+            b.customerName.toLowerCase().includes(q) ||
+            b.carName.toLowerCase().includes(q) ||
+            b.id.toLowerCase().includes(q) ||
+            b.customerPhone.includes(q)
+        );
+        return { cars, bookings: filteredBookings, usersList };
+    }
+    else if (ownerTab === 'users') {
+        const filteredUsers = usersList.filter(u => 
+            u.name.toLowerCase().includes(q) ||
+            u.email?.toLowerCase().includes(q) ||
+            u.phone.includes(q)
+        );
+        return { cars, bookings, usersList: filteredUsers };
+    }
+    
+    return { cars, bookings, usersList };
+  };
+
+  const { cars: ownerCars, bookings: ownerBookings, usersList: ownerUsers } = getOwnerFilteredData();
+
 
   // --- Handlers ---
 
@@ -386,7 +423,7 @@ export const App: React.FC = () => {
                       ].map((tab) => (
                          <button
                             key={tab.id}
-                            onClick={() => setOwnerTab(tab.id as OwnerTab)}
+                            onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }}
                             className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
                                ownerTab === tab.id 
                                ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' 
@@ -398,6 +435,26 @@ export const App: React.FC = () => {
                          </button>
                       ))}
                    </div>
+                   
+                   {/* --- SEARCH BAR (Only for specific tabs) --- */}
+                   {(ownerTab === 'fleet' || ownerTab === 'bookings' || ownerTab === 'users') && (
+                      <div className="relative">
+                         <input 
+                            type="text"
+                            placeholder={
+                                ownerTab === 'fleet' ? "Search cars by name or category..." :
+                                ownerTab === 'bookings' ? "Search bookings by user, car, or Ref ID..." :
+                                "Search users by name, email or phone..."
+                            }
+                            value={ownerSearchTerm}
+                            onChange={(e) => setOwnerSearchTerm(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm"
+                         />
+                         <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                         </svg>
+                      </div>
+                   )}
 
                    {/* --- FLEET TAB --- */}
                    {ownerTab === 'fleet' && (
@@ -421,10 +478,10 @@ export const App: React.FC = () => {
                             )}
                          </div>
 
-                         {/* Car Grid for Owners (Updated for horizontal cards) */}
+                         {/* Car Grid for Owners */}
                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {cars.length > 0 ? (
-                                cars.map((car, index) => (
+                            {ownerCars.length > 0 ? (
+                                ownerCars.map((car, index) => (
                                   <CarCard
                                       key={car.id}
                                       car={car}
@@ -440,7 +497,7 @@ export const App: React.FC = () => {
                                 ))
                             ) : (
                                 <div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200">
-                                   <p>Your fleet is empty. Add a car to get started.</p>
+                                   <p>{ownerSearchTerm ? 'No cars found matching your search.' : 'Your fleet is empty. Add a car to get started.'}</p>
                                 </div>
                             )}
                          </div>
@@ -450,7 +507,7 @@ export const App: React.FC = () => {
                    {/* --- BOOKINGS TAB --- */}
                    {ownerTab === 'bookings' && (
                       <OwnerBookings 
-                          bookings={bookings} 
+                          bookings={ownerBookings} 
                           onApprove={handleApproveBooking} 
                           onReject={handleRejectBooking} 
                       />
@@ -458,7 +515,7 @@ export const App: React.FC = () => {
 
                    {/* --- USERS TAB --- */}
                    {ownerTab === 'users' && (
-                      <OwnerUsersList users={usersList} />
+                      <OwnerUsersList users={ownerUsers} />
                    )}
 
                    {/* --- SETTINGS TAB --- */}
