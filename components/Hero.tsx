@@ -106,11 +106,12 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
   const handleDragEnd = () => {
     isDragging.current = false;
-    // On mobile, always unpause on release. On desktop, rely on hover state.
+    // On mobile (or anytime drag ends via mouse up), check if we should unpause.
+    // If it's a touch device (cannot hover), we MUST unpause.
     if (!canHover.current) {
         setIsPaused(false);
     }
-    // If desktop and mouse is still over, isPaused remains true due to MouseEnter/Leave logic
+    // For desktop, if mouse is still inside, onMouseEnter/Leave handles it.
   };
 
   // Mouse Events
@@ -129,9 +130,17 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   };
 
   // Touch Events
-  const onTouchStart = (e: React.TouchEvent) => handleDragStart(e.touches[0].clientX);
+  const onTouchStart = (e: React.TouchEvent) => {
+      // e.preventDefault(); // DO NOT prevent default here, allows vertical scrolling
+      handleDragStart(e.touches[0].clientX);
+  };
   const onTouchMove = (e: React.TouchEvent) => handleDragMove(e.touches[0].clientX);
-  const onTouchEnd = () => handleDragEnd();
+  
+  const onTouchEnd = () => {
+      isDragging.current = false;
+      // Always unpause on touch end to prevent stuck slider on mobile
+      setIsPaused(false);
+  };
 
   // Continuous Animation Loop
   useEffect(() => {
@@ -193,11 +202,11 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   };
 
   return (
-    <div className="relative w-full mb-[28rem] md:mb-32 mx-auto group animate-fade-in">
+    <div className="relative w-full mb-[28rem] md:mb-32 mx-auto group animate-fade-in select-none">
       
       {/* Carousel Container */}
       <div 
-        className="relative w-full overflow-hidden px-4 md:px-0 pt-8 cursor-grab active:cursor-grabbing"
+        className="relative w-full overflow-hidden px-4 md:px-0 pt-8 cursor-grab active:cursor-grabbing select-none"
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         onMouseDown={onMouseDown}
@@ -206,7 +215,13 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        style={{ touchAction: 'pan-y' }} // Allows vertical scroll but captures horizontal
+        onContextMenu={(e) => e.preventDefault()} // Prevent context menu on long press
+        style={{ 
+            touchAction: 'pan-y', // Allows vertical scroll but captures horizontal
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none' // Disable callout (like save image) on iOS
+        }} 
       >
         {/* Track */}
         <div 
@@ -227,7 +242,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <img 
                             src={slide.imageUrl} 
                             alt={slide.title} 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover select-none"
                             draggable={false}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
@@ -248,7 +263,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
                   <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center relative border border-gray-100 hover:border-red-200 transition-colors h-[62px]">
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1">
+                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1 select-none">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Pick-up Point
                      </label>
@@ -274,7 +289,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                     onClick={() => openPicker(startInputRef)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none">Pick-up Date</label>
+                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Pick-up Date</label>
                      
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none gap-2">
                         <span className={`text-sm font-bold truncate ${start ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -299,7 +314,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                     onClick={() => openPicker(endInputRef)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none">Return Date</label>
+                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Return Date</label>
                      
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none gap-2">
                         <span className={`text-sm font-bold truncate ${end ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -322,7 +337,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   {/* Submit */}
                   <button 
                     type="submit"
-                    className="h-[62px] bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold uppercase tracking-wide shadow-lg shadow-red-600/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    className="h-[62px] bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold uppercase tracking-wide shadow-lg shadow-red-600/30 transition-all active:scale-95 flex items-center justify-center gap-2 select-none"
                   >
                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                      Search
