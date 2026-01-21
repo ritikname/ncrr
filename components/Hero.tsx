@@ -15,10 +15,14 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const [itemsPerView, setItemsPerView] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Animation Refs
+  // Animation & Drag Refs
   const sliderRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
   const progressRef = useRef(0);
+  
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const canHover = useRef(true);
 
   // Search State
   const [location, setLocation] = useState('');
@@ -62,7 +66,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     }
   };
 
-  // Responsive logic
+  // Responsive logic & Feature Detection
   useEffect(() => {
     const handleResize = () => {
         if (window.innerWidth >= 1280) setItemsPerView(3); // XL Desktop
@@ -71,28 +75,88 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     };
     handleResize();
     window.addEventListener('resize', handleResize);
+    
+    // Detect Hover Capability (Fixes stuck issue on mobile)
+    if (typeof window !== 'undefined') {
+        canHover.current = window.matchMedia('(hover: hover)').matches;
+    }
+
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // --- TOUCH / DRAG HANDLERS ---
+  const handleDragStart = (clientX: number) => {
+    setIsPaused(true);
+    isDragging.current = true;
+    startX.current = clientX;
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (!isDragging.current || !sliderRef.current) return;
+    
+    const diff = startX.current - clientX; // Positive if dragging LEFT
+    startX.current = clientX;
+
+    const containerWidth = sliderRef.current.parentElement?.offsetWidth || 1;
+    // Calculate percentage movement
+    const percentMove = (diff / containerWidth) * 100;
+    
+    progressRef.current += percentMove;
+  };
+
+  const handleDragEnd = () => {
+    isDragging.current = false;
+    // On mobile, always unpause on release. On desktop, rely on hover state.
+    if (!canHover.current) {
+        setIsPaused(false);
+    }
+    // If desktop and mouse is still over, isPaused remains true due to MouseEnter/Leave logic
+  };
+
+  // Mouse Events
+  const onMouseDown = (e: React.MouseEvent) => {
+      e.preventDefault();
+      handleDragStart(e.clientX);
+  };
+  const onMouseMove = (e: React.MouseEvent) => handleDragMove(e.clientX);
+  const onMouseUp = () => handleDragEnd();
+  const onMouseLeave = () => {
+      handleDragEnd();
+      if (canHover.current) setIsPaused(false);
+  };
+  const onMouseEnter = () => {
+      if (canHover.current) setIsPaused(true);
+  };
+
+  // Touch Events
+  const onTouchStart = (e: React.TouchEvent) => handleDragStart(e.touches[0].clientX);
+  const onTouchMove = (e: React.TouchEvent) => handleDragMove(e.touches[0].clientX);
+  const onTouchEnd = () => handleDragEnd();
 
   // Continuous Animation Loop
   useEffect(() => {
     const animate = () => {
-        if (!isPaused && sliderRef.current) {
-            // Speed: Adjust this value to change speed (e.g., 0.1 is moderate)
+        // Auto-increment if not paused and not dragging
+        if (!isPaused && !isDragging.current) {
             const speed = 0.1; 
             progressRef.current += speed;
+        }
 
-            // Calculate the width of one full original set in percentage terms
-            // Each item takes (100 / itemsPerView) % width
-            const singleSetWidth = (100 / itemsPerView) * activeSlides.length;
+        const singleSetWidth = (100 / itemsPerView) * activeSlides.length;
 
-            // Seamless Reset: If we've scrolled past the first set, jump back to 0
-            if (progressRef.current >= singleSetWidth) {
-                progressRef.current = 0;
-            }
+        // Infinite Loop Logic (Wrap Around)
+        if (progressRef.current >= singleSetWidth) {
+            progressRef.current = 0;
+        } else if (progressRef.current < 0) {
+            // Support reverse scrolling (dragging left to right past 0)
+            progressRef.current = singleSetWidth; 
+        }
 
+        // Apply Transform
+        if (sliderRef.current) {
             sliderRef.current.style.transform = `translateX(-${progressRef.current}%)`;
         }
+        
         animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -133,9 +197,16 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
       
       {/* Carousel Container */}
       <div 
-        className="relative w-full overflow-hidden px-4 md:px-0 pt-8"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
+        className="relative w-full overflow-hidden px-4 md:px-0 pt-8 cursor-grab active:cursor-grabbing"
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ touchAction: 'pan-y' }} // Allows vertical scroll but captures horizontal
       >
         {/* Track */}
         <div 
@@ -152,11 +223,12 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                     className="flex-shrink-0 px-2"
                     style={{ width: `${100 / itemsPerView}%` }}
                 >
-                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 hover:shadow-xl transition-shadow cursor-pointer">
+                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 transition-shadow pointer-events-none select-none">
                         <img 
                             src={slide.imageUrl} 
                             alt={slide.title} 
-                            className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+                            className="w-full h-full object-cover"
+                            draggable={false}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
                         <div className="absolute bottom-0 left-0 p-6 w-full">
