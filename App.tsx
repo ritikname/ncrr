@@ -16,6 +16,7 @@ import AddCarForm from './components/AddCarForm';
 import Toast from './components/Toast';
 import WhyChooseUs from './components/WhyChooseUs';
 import FAQ from './components/FAQ';
+import CustomerBookings from './components/CustomerBookings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -345,6 +346,13 @@ export const App: React.FC = () => {
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        
+        {/* New Route for Customer Bookings */}
+        <Route path="/my-bookings" element={
+            <div className="flex-grow pt-8">
+                <CustomerBookings bookings={bookings} />
+            </div>
+        } />
         
         <Route path="/" element={
            <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">

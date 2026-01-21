@@ -111,6 +111,16 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
           {user ? (
             <>
               <span className="text-sm font-bold text-gray-300">Hello, {user.name || 'User'}</span>
+              
+              {!isOwner && (
+                <button 
+                  onClick={() => handleNavigation('/my-bookings')} 
+                  className="text-sm font-bold text-gray-300 hover:text-white transition-colors"
+                >
+                  My Bookings
+                </button>
+              )}
+
               {isOwner && (
                 <button 
                     onClick={() => onToggleView(viewMode === 'owner' ? 'customer' : 'owner')} 
@@ -159,6 +169,15 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
                        </div>
                    </div>
                    
+                   {!isOwner && (
+                      <button 
+                        onClick={() => handleNavigation('/my-bookings')}
+                        className="w-full text-left py-3 px-2 rounded-lg text-sm font-bold text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+                      >
+                         📅 My Bookings
+                      </button>
+                   )}
+
                    {isOwner && (
                      <button 
                         onClick={() => { onToggleView(viewMode === 'owner' ? 'customer' : 'owner'); setIsMenuOpen(false); }}
