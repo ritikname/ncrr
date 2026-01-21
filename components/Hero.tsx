@@ -11,11 +11,14 @@ interface HeroProps {
 const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const activeSlides = slides && slides.length > 0 ? slides : DEFAULT_HERO_SLIDES;
   
-  // Infinite Scroll State
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // Continuous Scroll State
   const [itemsPerView, setItemsPerView] = useState(1);
-  const [isTransitioning, setIsTransitioning] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Animation Refs
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<number | null>(null);
+  const progressRef = useRef(0);
 
   // Search State
   const [location, setLocation] = useState('');
@@ -25,9 +28,8 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const startInputRef = useRef<HTMLInputElement>(null);
   const endInputRef = useRef<HTMLInputElement>(null);
 
-  // Create extended slides array for infinite loop (Tripling to ensure smooth buffer)
+  // Tripling slides ensures we have enough buffer for a seamless loop
   const extendedSlides = [...activeSlides, ...activeSlides, ...activeSlides];
-  const realLength = activeSlides.length;
 
   // Helper for local date YYYY-MM-DD
   const getTodayString = () => {
@@ -72,43 +74,34 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Auto-scroll logic (Infinite Loop)
+  // Continuous Animation Loop
   useEffect(() => {
-    if (isPaused) return;
+    const animate = () => {
+        if (!isPaused && sliderRef.current) {
+            // Speed: Adjust this value to change speed (e.g., 0.1 is moderate)
+            const speed = 0.1; 
+            progressRef.current += speed;
 
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => prev + 1);
-    }, 3000); // 3s interval (One by one)
-    return () => clearInterval(timer);
-  }, [isPaused]);
+            // Calculate the width of one full original set in percentage terms
+            // Each item takes (100 / itemsPerView) % width
+            const singleSetWidth = (100 / itemsPerView) * activeSlides.length;
 
-  // Handle seamless reset
-  // The strategy: We start in the middle set. If we reach the end of the middle set + 1, we snap back to the start of middle set.
-  // Actually simpler: reset when index reaches (realLength * 2).
-  useEffect(() => {
-    if (currentIndex >= realLength * 2) {
-      // Wait for transition to end, then snap back
-      const timeout = setTimeout(() => {
-        setIsTransitioning(false);
-        // Snap back to the corresponding index in the first set (or middle set)
-        // We subtract 'realLength' to go back one full loop length
-        setCurrentIndex(prev => prev - realLength);
-      }, 700); // Match transition duration
+            // Seamless Reset: If we've scrolled past the first set, jump back to 0
+            if (progressRef.current >= singleSetWidth) {
+                progressRef.current = 0;
+            }
 
-      return () => clearTimeout(timeout);
-    }
-  }, [currentIndex, realLength]);
+            sliderRef.current.style.transform = `translateX(-${progressRef.current}%)`;
+        }
+        animationRef.current = requestAnimationFrame(animate);
+    };
 
-  // Re-enable transition after snap
-  useEffect(() => {
-    if (!isTransitioning) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsTransitioning(true);
-        });
-      });
-    }
-  }, [isTransitioning]);
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+        if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [isPaused, itemsPerView, activeSlides.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,39 +128,22 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     }
   };
 
-  // Navigation handlers
-  const prevSlide = () => {
-      setCurrentIndex(prev => prev - 1);
-  };
-  
-  const nextSlide = () => {
-      setCurrentIndex(prev => prev + 1);
-  };
-
   return (
     <div className="relative w-full mb-[28rem] md:mb-32 mx-auto group animate-fade-in">
       
-      {/* Navigation Buttons (Top Right) */}
-      <div className="flex justify-end gap-3 mb-4 px-4 max-w-[98%] mx-auto">
-         <button onClick={prevSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors z-20">
-            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-         </button>
-         <button onClick={nextSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors z-20">
-            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-         </button>
-      </div>
-
       {/* Carousel Container */}
       <div 
-        className="relative w-full overflow-hidden px-4 md:px-0"
+        className="relative w-full overflow-hidden px-4 md:px-0 pt-8"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
+        {/* Track */}
         <div 
-            className="flex"
+            ref={sliderRef}
+            className="flex will-change-transform"
             style={{ 
-                transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
-                transition: isTransitioning ? 'transform 700ms cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
+                // Initial transform
+                transform: `translateX(0%)`
             }}
         >
             {extendedSlides.map((slide, index) => (
@@ -194,7 +170,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         </div>
       </div>
 
-      {/* Search Widget - Lowered to sit below the images (translate-y-4) */}
+      {/* Search Widget */}
       <div className="absolute left-0 right-0 top-[100%] z-40 px-4 flex justify-center translate-y-4">
           <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
