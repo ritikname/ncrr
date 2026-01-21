@@ -1,5 +1,32 @@
 
-import { Car } from './types';
+import { Car, HeroSlide } from './types';
+
+export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
+  {
+    id: 'default-1',
+    imageUrl: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2070&auto=format&fit=crop',
+    title: 'LUXURY SEDANS',
+    description: 'Starting at ₹2000/day'
+  },
+  {
+    id: 'default-2',
+    imageUrl: 'https://images.unsplash.com/photo-1503376763036-066120622c74?q=80&w=2000&auto=format&fit=crop',
+    title: 'OFF-ROAD BEASTS',
+    description: 'Conquer the terrain.'
+  },
+  {
+    id: 'default-3',
+    imageUrl: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=2000&auto=format&fit=crop',
+    title: 'CITY DRIVES',
+    description: 'Compact & Efficient.'
+  },
+  {
+    id: 'default-4',
+    imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=2000&auto=format&fit=crop',
+    title: 'PREMIUM SUVS',
+    description: 'Space & Comfort.'
+  }
+];
 
 export const INITIAL_CARS: Car[] = [
   {
@@ -83,6 +110,6 @@ export const INITIAL_CARS: Car[] = [
 ];
 
 export const STORAGE_KEYS = {
-  CARS: 'delhi_ncr_cars_v5', // Bumped version
+  CARS: 'delhi_ncr_cars_v5', 
   VIEW_MODE: 'delhi_ncr_view_mode_v1',
 };

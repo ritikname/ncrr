@@ -1,46 +1,21 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { HeroSlide } from '../types';
+import { DEFAULT_HERO_SLIDES } from '../constants';
 
 interface HeroProps {
   slides: HeroSlide[];
   onSearch: (criteria: { location: string; start: string; end: string }) => void;
 }
 
-const DEFAULT_SLIDES: HeroSlide[] = [
-  {
-    id: 'default-1',
-    imageUrl: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2070&auto=format&fit=crop',
-    title: 'LUXURY SEDANS',
-    description: 'Starting at ₹2000/day'
-  },
-  {
-    id: 'default-2',
-    imageUrl: 'https://images.unsplash.com/photo-1503376763036-066120622c74?q=80&w=2000&auto=format&fit=crop',
-    title: 'OFF-ROAD BEASTS',
-    description: 'Conquer the terrain.'
-  },
-  {
-    id: 'default-3',
-    imageUrl: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=2000&auto=format&fit=crop',
-    title: 'CITY DRIVES',
-    description: 'Compact & Efficient.'
-  },
-  {
-    id: 'default-4',
-    imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=2000&auto=format&fit=crop',
-    title: 'PREMIUM SUVS',
-    description: 'Space & Comfort.'
-  }
-];
-
 const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
-  const activeSlides = slides && slides.length > 0 ? slides : DEFAULT_SLIDES;
+  const activeSlides = slides && slides.length > 0 ? slides : DEFAULT_HERO_SLIDES;
   
   // Infinite Scroll State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Search State
   const [location, setLocation] = useState('');
@@ -50,9 +25,9 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const startInputRef = useRef<HTMLInputElement>(null);
   const endInputRef = useRef<HTMLInputElement>(null);
 
-  // Create extended slides array for infinite loop (Double the array)
-  // This allows us to slide past the end to the "start" seamlessly
-  const extendedSlides = [...activeSlides, ...activeSlides];
+  // Create extended slides array for infinite loop (Tripling to ensure smooth buffer)
+  const extendedSlides = [...activeSlides, ...activeSlides, ...activeSlides];
+  const realLength = activeSlides.length;
 
   // Helper for local date YYYY-MM-DD
   const getTodayString = () => {
@@ -99,30 +74,34 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
   // Auto-scroll logic (Infinite Loop)
   useEffect(() => {
+    if (isPaused) return;
+
     const timer = setInterval(() => {
       setCurrentIndex((prev) => prev + 1);
-    }, 2500); // 2.5s for smooth reading
+    }, 3000); // 3s interval (One by one)
     return () => clearInterval(timer);
-  }, []);
+  }, [isPaused]);
 
-  // Handle seamless reset when reaching the end of the first set
+  // Handle seamless reset
+  // The strategy: We start in the middle set. If we reach the end of the middle set + 1, we snap back to the start of middle set.
+  // Actually simpler: reset when index reaches (realLength * 2).
   useEffect(() => {
-    if (currentIndex >= activeSlides.length) {
-      // Allow the transition to finish (matches duration-500)
+    if (currentIndex >= realLength * 2) {
+      // Wait for transition to end, then snap back
       const timeout = setTimeout(() => {
-        setIsTransitioning(false); // Disable transition for instant jump
-        setCurrentIndex(currentIndex % activeSlides.length); // Jump to the real start index
-      }, 500);
+        setIsTransitioning(false);
+        // Snap back to the corresponding index in the first set (or middle set)
+        // We subtract 'realLength' to go back one full loop length
+        setCurrentIndex(prev => prev - realLength);
+      }, 700); // Match transition duration
 
       return () => clearTimeout(timeout);
     }
-  }, [currentIndex, activeSlides.length]);
+  }, [currentIndex, realLength]);
 
-  // Re-enable transition after the jump
+  // Re-enable transition after snap
   useEffect(() => {
     if (!isTransitioning) {
-      // Use requestAnimationFrame to ensure the DOM has updated with transition:none
-      // before turning it back on.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsTransitioning(true);
@@ -158,8 +137,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
   // Navigation handlers
   const prevSlide = () => {
-      // Basic prev logic (wrap to end if at 0)
-      setCurrentIndex(prev => (prev - 1 + activeSlides.length) % activeSlides.length);
+      setCurrentIndex(prev => prev - 1);
   };
   
   const nextSlide = () => {
@@ -180,12 +158,16 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
       </div>
 
       {/* Carousel Container */}
-      <div className="relative w-full overflow-hidden px-4 md:px-0">
+      <div 
+        className="relative w-full overflow-hidden px-4 md:px-0"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
         <div 
             className="flex"
             style={{ 
                 transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
-                transition: isTransitioning ? 'transform 500ms ease-in-out' : 'none'
+                transition: isTransitioning ? 'transform 700ms cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
             }}
         >
             {extendedSlides.map((slide, index) => (
@@ -194,7 +176,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                     className="flex-shrink-0 px-2"
                     style={{ width: `${100 / itemsPerView}%` }}
                 >
-                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 group-hover:shadow-xl transition-shadow">
+                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 hover:shadow-xl transition-shadow cursor-pointer">
                         <img 
                             src={slide.imageUrl} 
                             alt={slide.title} 

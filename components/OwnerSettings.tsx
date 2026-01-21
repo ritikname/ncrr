@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { HeroSlide, PromoCode } from '../types';
 import { api } from '../services/api';
+import { DEFAULT_HERO_SLIDES } from '../constants';
 
 interface OwnerSettingsProps {
   currentQrCode?: string;
@@ -32,6 +33,10 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
   const [promoLoading, setPromoLoading] = useState(false);
 
   const [showDebug, setShowDebug] = useState(false);
+
+  // Determine which slides to show. If DB is empty, show defaults so user can manage them.
+  const displaySlides = heroSlides.length > 0 ? heroSlides : DEFAULT_HERO_SLIDES;
+  const isUsingDefaults = heroSlides.length === 0;
 
   useEffect(() => {
     fetchPromos();
@@ -117,14 +122,23 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
       description: slideDesc,
       imageUrl: slideImage
     };
-    onSaveSlides([...heroSlides, newSlide]);
+    
+    // If we were using defaults, we now start a fresh list with the new slide
+    // OR, we append to the existing defaults (usually better UX if they just want to add one)
+    // However, usually "custom" overrides "default". 
+    // Let's decide: Add to current display list.
+    const baseList = isUsingDefaults ? [] : heroSlides;
+    onSaveSlides([...baseList, newSlide]);
+
     setSlideTitle('');
     setSlideDesc('');
     setSlideImage(null);
   };
 
   const handleDeleteSlide = (id: string) => {
-    onSaveSlides(heroSlides.filter(s => s.id !== id));
+    // If we are deleting a default slide, we effectively save the *remaining* default slides as our new custom list.
+    const newList = displaySlides.filter(s => s.id !== id);
+    onSaveSlides(newList);
   };
 
   return (
@@ -293,8 +307,14 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
         </div>
 
         {/* Slide List */}
+        {isUsingDefaults && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-blue-700 text-xs font-bold text-center">
+             Currently displaying default slides. Deleting a slide here will save the remaining ones as your custom configuration.
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
-           {heroSlides.map(slide => (
+           {displaySlides.map(slide => (
               <div key={slide.id} className="relative aspect-video rounded-xl overflow-hidden group">
                  <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-cover" />
                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-4 text-center">
