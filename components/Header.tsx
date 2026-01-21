@@ -26,71 +26,74 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-gray-900 shadow-lg border-b border-gray-800 relative overflow-hidden group">
-      <style>{`
-        @keyframes roadMove {
-          0% { background-position: 0px 0; }
-          100% { background-position: -60px 0; }
-        }
-        @keyframes carVibrate {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          25% { transform: translateY(-0.5px) rotate(-0.5deg); }
-          50% { transform: translateY(0) rotate(0deg); }
-          75% { transform: translateY(-0.5px) rotate(0.5deg); }
-        }
-        .animate-road {
-          animation: roadMove 0.4s linear infinite;
-        }
-        .animate-car {
-          animation: carVibrate 0.15s ease-in-out infinite;
-        }
-      `}</style>
-      
-      {/* --- BACKGROUND ROAD ANIMATION --- */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-          {/* Asphalt Texture overlay (optional subtle noise) */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/asphalt-dark.png')]"></div>
+    <header className="sticky top-0 z-50 bg-gray-900 shadow-lg border-b border-gray-800 relative group">
+      {/* Background Wrapper with Overflow Hidden to contain Road/Car animations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <style>{`
+            @keyframes roadMove {
+              0% { background-position: 0px 0; }
+              100% { background-position: -60px 0; }
+            }
+            @keyframes carVibrate {
+              0%, 100% { transform: translateY(0) rotate(0deg); }
+              25% { transform: translateY(-0.5px) rotate(-0.5deg); }
+              50% { transform: translateY(0) rotate(0deg); }
+              75% { transform: translateY(-0.5px) rotate(0.5deg); }
+            }
+            .animate-road {
+              animation: roadMove 0.4s linear infinite;
+            }
+            .animate-car {
+              animation: carVibrate 0.15s ease-in-out infinite;
+            }
+          `}</style>
           
-          {/* Dashed Center Line */}
-          <div 
-            className="absolute top-1/2 left-0 w-full h-[4px] -mt-[2px] animate-road opacity-30"
-            style={{
-                backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.8) 50%, transparent 50%)',
-                backgroundSize: '60px 100%'
-            }}
-          ></div>
+          {/* --- BACKGROUND ROAD ANIMATION --- */}
+          <div className="absolute inset-0 z-0">
+              {/* Asphalt Texture overlay (optional subtle noise) */}
+              <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/asphalt-dark.png')]"></div>
+              
+              {/* Dashed Center Line */}
+              <div 
+                className="absolute top-1/2 left-0 w-full h-[4px] -mt-[2px] animate-road opacity-30"
+                style={{
+                    backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.8) 50%, transparent 50%)',
+                    backgroundSize: '60px 100%'
+                }}
+              ></div>
 
-          {/* Top/Bottom Road Borders (Subtle) */}
-          <div className="absolute top-0 w-full h-[1px] bg-gray-800"></div>
-          <div className="absolute bottom-0 w-full h-[1px] bg-gray-800"></div>
-      </div>
+              {/* Top/Bottom Road Borders (Subtle) */}
+              <div className="absolute top-0 w-full h-[1px] bg-gray-800"></div>
+              <div className="absolute bottom-0 w-full h-[1px] bg-gray-800"></div>
+          </div>
 
-      {/* --- THE CAR (Centered) --- */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 pointer-events-none">
-         <div className="animate-car filter drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
-            <svg width="60" height="30" viewBox="0 0 36 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Car Body Red */}
-                <path d="M2 10L5 6H14L16 10H2Z" fill="#DC2626"/>
-                <path d="M1 10H33C34.1 10 35 10.9 35 12V14H1V10Z" fill="#B91C1C"/>
-                {/* Windows */}
-                <path d="M6 7L13 7L15 9.5H3L6 7Z" fill="#1F2937"/>
-                {/* Wheels */}
-                <circle cx="7" cy="14" r="3" fill="#111827"/>
-                <circle cx="7" cy="14" r="1.5" fill="#4B5563"/>
-                <circle cx="29" cy="14" r="3" fill="#111827"/>
-                <circle cx="29" cy="14" r="1.5" fill="#4B5563"/>
-                {/* Headlight Beam Effect */}
-                <path d="M35 11 L60 8 L60 15 L35 13 Z" fill="url(#headlight_grad)" className="opacity-40" />
-                {/* Headlight */}
-                <rect x="33" y="11" width="1" height="2" fill="#FCD34D" />
-                <defs>
-                   <linearGradient id="headlight_grad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#FEF3C7" stopOpacity="0.8"/>
-                      <stop offset="100%" stopColor="#FEF3C7" stopOpacity="0"/>
-                   </linearGradient>
-                </defs>
-            </svg>
-         </div>
+          {/* --- THE CAR (Centered) --- */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0">
+             <div className="animate-car filter drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
+                <svg width="60" height="30" viewBox="0 0 36 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Car Body Red */}
+                    <path d="M2 10L5 6H14L16 10H2Z" fill="#DC2626"/>
+                    <path d="M1 10H33C34.1 10 35 10.9 35 12V14H1V10Z" fill="#B91C1C"/>
+                    {/* Windows */}
+                    <path d="M6 7L13 7L15 9.5H3L6 7Z" fill="#1F2937"/>
+                    {/* Wheels */}
+                    <circle cx="7" cy="14" r="3" fill="#111827"/>
+                    <circle cx="7" cy="14" r="1.5" fill="#4B5563"/>
+                    <circle cx="29" cy="14" r="3" fill="#111827"/>
+                    <circle cx="29" cy="14" r="1.5" fill="#4B5563"/>
+                    {/* Headlight Beam Effect */}
+                    <path d="M35 11 L60 8 L60 15 L35 13 Z" fill="url(#headlight_grad)" className="opacity-40" />
+                    {/* Headlight */}
+                    <rect x="33" y="11" width="1" height="2" fill="#FCD34D" />
+                    <defs>
+                       <linearGradient id="headlight_grad" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#FEF3C7" stopOpacity="0.8"/>
+                          <stop offset="100%" stopColor="#FEF3C7" stopOpacity="0"/>
+                       </linearGradient>
+                    </defs>
+                </svg>
+             </div>
+          </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative z-10">
@@ -155,7 +158,7 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
 
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
-        <div className="md:hidden bg-gray-900 border-t border-gray-800 absolute w-full left-0 shadow-xl animate-fade-in z-40">
+        <div className="md:hidden bg-gray-900 border-t border-gray-800 absolute top-full w-full left-0 shadow-xl animate-fade-in z-40">
            <div className="p-4 space-y-4 flex flex-col">
               {user ? (
                 <>
