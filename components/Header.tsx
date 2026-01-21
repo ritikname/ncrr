@@ -27,9 +27,25 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-md border-b border-gray-200">
+      <style>{`
+        @keyframes roadMove {
+          0% { background-position: 0px 0; }
+          100% { background-position: -40px 0; }
+        }
+        @keyframes carVibrate {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-1px); }
+        }
+        .animate-road {
+          animation: roadMove 0.5s linear infinite;
+        }
+        .animate-car {
+          animation: carVibrate 0.1s ease-in-out infinite;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleNavigation('/')}>
+        <div className="flex items-center gap-3 cursor-pointer flex-shrink-0" onClick={() => handleNavigation('/')}>
             <div className="flex flex-col leading-none select-none">
                 <span className="text-2xl font-black text-red-600 tracking-tighter transform -skew-x-6">NCR</span>
                 <span className="text-2xl font-black text-black tracking-tighter transform -skew-x-6 -mt-2">DRIVE</span>
@@ -40,8 +56,43 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
             </span>
         </div>
 
+        {/* --- ROAD TRIP ANIMATION (Desktop Middle) --- */}
+        <div className="hidden lg:flex flex-grow mx-8 h-10 bg-gray-800 rounded-full relative overflow-hidden items-center shadow-inner border border-gray-700 max-w-md">
+            {/* Dashed Line */}
+            <div 
+                className="absolute w-full h-[2px] bg-transparent animate-road"
+                style={{
+                    backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.5) 50%, transparent 50%)',
+                    backgroundSize: '40px 100%',
+                    top: '50%',
+                    marginTop: '-1px'
+                }}
+            ></div>
+
+            {/* Car SVG */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-car z-10">
+                <svg width="36" height="18" viewBox="0 0 36 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Car Body Red */}
+                    <path d="M2 10L5 6H14L16 10H2Z" fill="#DC2626"/>
+                    <path d="M1 10H33C34.1 10 35 10.9 35 12V14H1V10Z" fill="#B91C1C"/>
+                    {/* Windows */}
+                    <path d="M6 7L13 7L15 9.5H3L6 7Z" fill="#1F2937"/>
+                    {/* Wheels */}
+                    <circle cx="7" cy="14" r="3" fill="#111827"/>
+                    <circle cx="7" cy="14" r="1.5" fill="#4B5563"/>
+                    <circle cx="29" cy="14" r="3" fill="#111827"/>
+                    <circle cx="29" cy="14" r="1.5" fill="#4B5563"/>
+                    {/* Headlight */}
+                    <rect x="33" y="11" width="1" height="2" fill="#FCD34D" />
+                </svg>
+            </div>
+            
+            {/* Glare/Reflection */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+        </div>
+
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center space-x-6">
+        <div className="hidden md:flex items-center space-x-6 flex-shrink-0">
           {user ? (
             <>
               <span className="text-sm font-bold text-gray-700">Hello, {user.name || 'User'}</span>
