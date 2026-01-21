@@ -126,7 +126,7 @@ export const App: React.FC = () => {
          const y = fleetSection.getBoundingClientRect().top + window.scrollY + yOffset;
          window.scrollTo({ top: y, behavior: 'smooth' });
        }
-     }, 200);
+     }, 500); // Increased timeout for reliability
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -642,3 +642,5 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
+export default App;
