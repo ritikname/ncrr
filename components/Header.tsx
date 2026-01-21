@@ -26,89 +26,104 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-md border-b border-gray-200">
+    <header className="sticky top-0 z-50 bg-gray-900 shadow-lg border-b border-gray-800 relative overflow-hidden group">
       <style>{`
         @keyframes roadMove {
           0% { background-position: 0px 0; }
-          100% { background-position: -40px 0; }
+          100% { background-position: -60px 0; }
         }
         @keyframes carVibrate {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-1px); }
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          25% { transform: translateY(-0.5px) rotate(-0.5deg); }
+          50% { transform: translateY(0) rotate(0deg); }
+          75% { transform: translateY(-0.5px) rotate(0.5deg); }
         }
         .animate-road {
-          animation: roadMove 0.5s linear infinite;
+          animation: roadMove 0.4s linear infinite;
         }
         .animate-car {
-          animation: carVibrate 0.1s ease-in-out infinite;
+          animation: carVibrate 0.15s ease-in-out infinite;
         }
       `}</style>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      {/* --- BACKGROUND ROAD ANIMATION --- */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+          {/* Asphalt Texture overlay (optional subtle noise) */}
+          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/asphalt-dark.png')]"></div>
+          
+          {/* Dashed Center Line */}
+          <div 
+            className="absolute top-1/2 left-0 w-full h-[4px] -mt-[2px] animate-road opacity-30"
+            style={{
+                backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.8) 50%, transparent 50%)',
+                backgroundSize: '60px 100%'
+            }}
+          ></div>
+
+          {/* Top/Bottom Road Borders (Subtle) */}
+          <div className="absolute top-0 w-full h-[1px] bg-gray-800"></div>
+          <div className="absolute bottom-0 w-full h-[1px] bg-gray-800"></div>
+      </div>
+
+      {/* --- THE CAR (Centered) --- */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 pointer-events-none">
+         <div className="animate-car filter drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
+            <svg width="60" height="30" viewBox="0 0 36 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Car Body Red */}
+                <path d="M2 10L5 6H14L16 10H2Z" fill="#DC2626"/>
+                <path d="M1 10H33C34.1 10 35 10.9 35 12V14H1V10Z" fill="#B91C1C"/>
+                {/* Windows */}
+                <path d="M6 7L13 7L15 9.5H3L6 7Z" fill="#1F2937"/>
+                {/* Wheels */}
+                <circle cx="7" cy="14" r="3" fill="#111827"/>
+                <circle cx="7" cy="14" r="1.5" fill="#4B5563"/>
+                <circle cx="29" cy="14" r="3" fill="#111827"/>
+                <circle cx="29" cy="14" r="1.5" fill="#4B5563"/>
+                {/* Headlight Beam Effect */}
+                <path d="M35 11 L60 8 L60 15 L35 13 Z" fill="url(#headlight_grad)" className="opacity-40" />
+                {/* Headlight */}
+                <rect x="33" y="11" width="1" height="2" fill="#FCD34D" />
+                <defs>
+                   <linearGradient id="headlight_grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#FEF3C7" stopOpacity="0.8"/>
+                      <stop offset="100%" stopColor="#FEF3C7" stopOpacity="0"/>
+                   </linearGradient>
+                </defs>
+            </svg>
+         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3 cursor-pointer flex-shrink-0" onClick={() => handleNavigation('/')}>
             <div className="flex flex-col leading-none select-none">
-                <span className="text-2xl font-black text-red-600 tracking-tighter transform -skew-x-6">NCR</span>
-                <span className="text-2xl font-black text-black tracking-tighter transform -skew-x-6 -mt-2">DRIVE</span>
+                <span className="text-2xl font-black text-red-500 tracking-tighter transform -skew-x-6 drop-shadow-md">NCR</span>
+                <span className="text-2xl font-black text-white tracking-tighter transform -skew-x-6 -mt-2 drop-shadow-md">DRIVE</span>
             </div>
-            <div className="hidden sm:block w-px h-8 bg-gray-200 mx-1"></div>
+            <div className="hidden sm:block w-px h-8 bg-gray-700 mx-1"></div>
             <span className="hidden sm:block text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">
                 Official Portal
             </span>
-        </div>
-
-        {/* --- ROAD TRIP ANIMATION (Desktop Middle) --- */}
-        <div className="hidden lg:flex flex-grow mx-8 h-10 bg-gray-800 rounded-full relative overflow-hidden items-center shadow-inner border border-gray-700 max-w-md">
-            {/* Dashed Line */}
-            <div 
-                className="absolute w-full h-[2px] bg-transparent animate-road"
-                style={{
-                    backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.5) 50%, transparent 50%)',
-                    backgroundSize: '40px 100%',
-                    top: '50%',
-                    marginTop: '-1px'
-                }}
-            ></div>
-
-            {/* Car SVG */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-car z-10">
-                <svg width="36" height="18" viewBox="0 0 36 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {/* Car Body Red */}
-                    <path d="M2 10L5 6H14L16 10H2Z" fill="#DC2626"/>
-                    <path d="M1 10H33C34.1 10 35 10.9 35 12V14H1V10Z" fill="#B91C1C"/>
-                    {/* Windows */}
-                    <path d="M6 7L13 7L15 9.5H3L6 7Z" fill="#1F2937"/>
-                    {/* Wheels */}
-                    <circle cx="7" cy="14" r="3" fill="#111827"/>
-                    <circle cx="7" cy="14" r="1.5" fill="#4B5563"/>
-                    <circle cx="29" cy="14" r="3" fill="#111827"/>
-                    <circle cx="29" cy="14" r="1.5" fill="#4B5563"/>
-                    {/* Headlight */}
-                    <rect x="33" y="11" width="1" height="2" fill="#FCD34D" />
-                </svg>
-            </div>
-            
-            {/* Glare/Reflection */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
         </div>
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center space-x-6 flex-shrink-0">
           {user ? (
             <>
-              <span className="text-sm font-bold text-gray-700">Hello, {user.name || 'User'}</span>
+              <span className="text-sm font-bold text-gray-300">Hello, {user.name || 'User'}</span>
               {isOwner && (
                 <button 
                     onClick={() => onToggleView(viewMode === 'owner' ? 'customer' : 'owner')} 
-                    className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors border ${viewMode === 'owner' ? 'bg-red-600 text-white border-red-600' : 'text-red-600 border-red-600 hover:bg-red-50'}`}
+                    className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded transition-colors border ${viewMode === 'owner' ? 'bg-red-600 text-white border-red-600' : 'text-red-500 border-red-500 hover:bg-gray-800'}`}
                 >
                    {viewMode === 'owner' ? 'View as Customer' : 'Manage Fleet'}
                 </button>
               )}
-              <button onClick={logout} className="text-sm font-bold text-gray-500 hover:text-black">Logout</button>
+              <button onClick={logout} className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Logout</button>
             </>
           ) : (
             <>
-              <button onClick={() => navigate('/login')} className="text-sm font-bold text-gray-900 hover:text-red-600">Log In</button>
+              <button onClick={() => navigate('/login')} className="text-sm font-bold text-gray-300 hover:text-white transition-colors">Log In</button>
               <button onClick={() => navigate('/signup')} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg shadow-red-500/30 transition-all">Sign Up</button>
             </>
           )}
@@ -116,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
 
         {/* Mobile Menu Button */}
         <div className="md:hidden flex items-center">
-             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-white hover:bg-gray-800 rounded-lg transition-colors">
                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     {isMenuOpen ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -130,36 +145,36 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
 
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 absolute w-full left-0 shadow-xl animate-fade-in z-40">
+        <div className="md:hidden bg-gray-900 border-t border-gray-800 absolute w-full left-0 shadow-xl animate-fade-in z-40">
            <div className="p-4 space-y-4 flex flex-col">
               {user ? (
                 <>
-                   <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-                       <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-red-600 font-bold">
+                   <div className="flex items-center gap-3 border-b border-gray-800 pb-3">
+                       <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-red-500 font-bold">
                           {user.name?.[0]?.toUpperCase() || 'U'}
                        </div>
                        <div>
-                          <p className="text-sm font-bold text-gray-900">{user.name}</p>
-                          <p className="text-xs text-gray-500">{user.email}</p>
+                          <p className="text-sm font-bold text-white">{user.name}</p>
+                          <p className="text-xs text-gray-400">{user.email}</p>
                        </div>
                    </div>
                    
                    {isOwner && (
                      <button 
                         onClick={() => { onToggleView(viewMode === 'owner' ? 'customer' : 'owner'); setIsMenuOpen(false); }}
-                        className="w-full text-left py-3 px-2 rounded-lg text-sm font-bold text-red-600 uppercase tracking-wide hover:bg-red-50 transition-colors"
+                        className="w-full text-left py-3 px-2 rounded-lg text-sm font-bold text-red-500 uppercase tracking-wide hover:bg-gray-800 transition-colors"
                      >
                         {viewMode === 'owner' ? '👥 Switch to Customer View' : '🔧 Manage Fleet'}
                      </button>
                    )}
 
-                   <button onClick={handleLogout} className="w-full text-left py-3 px-2 text-sm font-bold text-gray-500 hover:text-black hover:bg-gray-50 rounded-lg">
+                   <button onClick={handleLogout} className="w-full text-left py-3 px-2 text-sm font-bold text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg">
                       Logout
                    </button>
                 </>
               ) : (
                 <>
-                   <button onClick={() => handleNavigation('/login')} className="w-full py-3 text-center font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50">Log In</button>
+                   <button onClick={() => handleNavigation('/login')} className="w-full py-3 text-center font-bold text-gray-300 border border-gray-700 rounded-xl hover:bg-gray-800">Log In</button>
                    <button onClick={() => handleNavigation('/signup')} className="w-full py-3 text-center font-bold text-white bg-red-600 rounded-xl shadow-lg shadow-red-500/30 hover:bg-red-700">Sign Up</button>
                 </>
               )}
@@ -168,7 +183,7 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
       )}
       
       {isOwner && viewMode === 'owner' && (
-        <div className="w-full text-center text-[10px] uppercase font-bold tracking-widest py-1 text-white bg-black">
+        <div className="w-full text-center text-[10px] uppercase font-bold tracking-widest py-1 text-white bg-black/50 backdrop-blur-sm border-t border-gray-800 absolute bottom-0 z-20">
           🔧 Owner Console Active
         </div>
       )}
