@@ -336,7 +336,7 @@ export const App: React.FC = () => {
   const WHATSAPP_LINK = "https://wa.link/cr2zns";
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-gray-900 overflow-x-hidden relative">
+    <div className="min-h-screen flex flex-col font-sans text-gray-900 overflow-x-hidden relative">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Header viewMode={viewMode} onToggleView={setViewMode} />
 
