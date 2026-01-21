@@ -10,21 +10,34 @@ interface HeroProps {
 const DEFAULT_SLIDES: HeroSlide[] = [
   {
     id: 'default-1',
-    imageUrl: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=2000&auto=format&fit=crop',
-    title: 'UNLIMITED KILOMETERS',
-    description: 'Drive as much as you want. No limits, just open roads.'
+    imageUrl: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2070&auto=format&fit=crop',
+    title: 'LUXURY SEDANS',
+    description: 'Starting at ₹2000/day'
   },
   {
     id: 'default-2',
+    imageUrl: 'https://images.unsplash.com/photo-1503376763036-066120622c74?q=80&w=2000&auto=format&fit=crop',
+    title: 'OFF-ROAD BEASTS',
+    description: 'Conquer the terrain.'
+  },
+  {
+    id: 'default-3',
+    imageUrl: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=2000&auto=format&fit=crop',
+    title: 'CITY DRIVES',
+    description: 'Compact & Efficient.'
+  },
+  {
+    id: 'default-4',
     imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=2000&auto=format&fit=crop',
-    title: 'ZERO SECURITY DEPOSIT',
-    description: 'Special offers on select premium sedans this season.'
+    title: 'PREMIUM SUVS',
+    description: 'Space & Comfort.'
   }
 ];
 
 const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const activeSlides = slides && slides.length > 0 ? slides : DEFAULT_SLIDES;
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [itemsPerView, setItemsPerView] = useState(1);
 
   // Search State
   const [location, setLocation] = useState('');
@@ -65,11 +78,23 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     }
   };
 
-  // Auto-scroll logic
+  // Responsive logic
+  useEffect(() => {
+    const handleResize = () => {
+        if (window.innerWidth >= 1280) setItemsPerView(3); // XL Desktop
+        else if (window.innerWidth >= 768) setItemsPerView(2); // Tablet
+        else setItemsPerView(1); // Mobile
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Auto-scroll logic (Every 1 second)
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
-    }, 5000); 
+    }, 1000); 
     return () => clearInterval(timer);
   }, [activeSlides.length]);
 
@@ -98,41 +123,55 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     }
   };
 
+  // Navigation handlers
+  const prevSlide = () => setCurrentIndex(prev => (prev - 1 + activeSlides.length) % activeSlides.length);
+  const nextSlide = () => setCurrentIndex(prev => (prev + 1) % activeSlides.length);
+
   return (
-    <div className="relative w-full mb-[28rem] md:mb-24 mx-auto group animate-fade-in">
+    <div className="relative w-full mb-[28rem] md:mb-32 mx-auto group animate-fade-in">
       
-      {/* Slides Container */}
-      <div className="relative h-[550px] w-full rounded-3xl overflow-hidden shadow-xl bg-black">
-        {activeSlides.map((slide, index) => (
-            <div 
-            key={slide.id}
-            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-            >
-            {/* Background Image */}
-            <div className="absolute inset-0">
-                <img 
-                src={slide.imageUrl} 
-                alt={slide.title} 
-                className="w-full h-full object-cover opacity-60 transition-transform duration-[10s] scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
-            </div>
-            
-            {/* Content Overlay */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pb-24 md:pb-20 px-4 text-center">
-                 <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tighter uppercase italic drop-shadow-2xl mb-4 transform translate-y-0 transition-transform duration-700">
-                    {slide.title}
-                </h1>
-                <p className="text-lg sm:text-xl text-gray-200 font-medium max-w-2xl drop-shadow-md bg-black/30 backdrop-blur-sm p-2 rounded-lg">
-                    {slide.description}
-                </p>
-            </div>
-            </div>
-        ))}
+      {/* Navigation Buttons (Top Right) */}
+      <div className="flex justify-end gap-3 mb-4 px-4 max-w-[98%] mx-auto">
+         <button onClick={prevSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+         </button>
+         <button onClick={nextSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+            <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+         </button>
       </div>
 
-      {/* Search Widget */}
-      <div className="absolute left-0 right-0 top-[100%] -translate-y-12 md:-translate-y-1/2 z-40 px-4 flex justify-center">
+      {/* Carousel Container */}
+      <div className="relative w-full overflow-hidden px-4 md:px-0">
+        <div 
+            className="flex transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)` }}
+        >
+            {activeSlides.map((slide) => (
+                <div 
+                    key={slide.id} 
+                    className="flex-shrink-0 px-2"
+                    style={{ width: `${100 / itemsPerView}%` }}
+                >
+                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 group-hover:shadow-xl transition-shadow">
+                        <img 
+                            src={slide.imageUrl} 
+                            alt={slide.title} 
+                            className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
+                        <div className="absolute bottom-0 left-0 p-6 w-full">
+                            <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest bg-black/50 backdrop-blur-md px-2 py-1 rounded-md mb-2 inline-block">Featured</span>
+                            <h3 className="text-xl md:text-2xl font-black text-white uppercase italic leading-tight mb-1">{slide.title}</h3>
+                            <p className="text-sm font-medium text-gray-300 line-clamp-2">{slide.description}</p>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+      </div>
+
+      {/* Search Widget - Kept Overlaying */}
+      <div className="absolute left-0 right-0 top-[100%] z-40 px-4 flex justify-center -translate-y-16 md:-translate-y-1/2">
           <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
@@ -158,14 +197,13 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                      </div>
                   </div>
 
-                  {/* Start Date - Invisible Overlay Method */}
+                  {/* Start Date */}
                   <div 
                     onClick={() => openPicker(startInputRef)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none">Pick-up Date</label>
                      
-                     {/* Visual Layer (Behind) */}
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none">
                         <span className={`text-sm font-bold ${start ? 'text-gray-900' : 'text-gray-400'}`}>
                             {start || 'Select Date'}
@@ -173,7 +211,6 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
 
-                     {/* Input Layer (Top, Invisible, Full Size) */}
                      <input 
                         ref={startInputRef}
                         type="date" 
@@ -181,18 +218,17 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         value={start}
                         onChange={handleStartDateChange}
                         className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
-                        style={{opacity: 0.01}} // Fix for iOS tap
+                        style={{opacity: 0.01}} 
                      />
                   </div>
 
-                  {/* End Date - Invisible Overlay Method */}
+                  {/* End Date */}
                   <div 
                     onClick={() => openPicker(endInputRef)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none">Return Date</label>
                      
-                     {/* Visual Layer (Behind) */}
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none">
                         <span className={`text-sm font-bold ${end ? 'text-gray-900' : 'text-gray-400'}`}>
                             {end || 'Select Date'}
@@ -200,7 +236,6 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
 
-                     {/* Input Layer (Top, Invisible, Full Size) */}
                      <input 
                         ref={endInputRef}
                         type="date" 
@@ -208,7 +243,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         value={end}
                         onChange={handleEndDateChange}
                         className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
-                        style={{opacity: 0.01}} // Fix for iOS tap
+                        style={{opacity: 0.01}} 
                      />
                   </div>
 
