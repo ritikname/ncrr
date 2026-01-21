@@ -14,15 +14,14 @@ interface CarFiltersProps {
 
 const CarFilters: React.FC<CarFiltersProps> = ({ filters, onFilterChange, resultCount }) => {
   return (
-    // Changed: bg-white -> bg-white/40 backdrop-blur-lg border-white/50
-    <div className="bg-white/40 backdrop-blur-lg p-4 rounded-2xl shadow-sm border border-white/50 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
+    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
       <div className="flex items-center gap-4 flex-wrap w-full md:w-auto">
          {/* Category */}
          <div className="relative">
             <select 
                 value={filters.category}
                 onChange={(e) => onFilterChange('category', e.target.value)}
-                className="appearance-none bg-white/50 hover:bg-white/80 border border-white/40 text-gray-700 py-2 pl-4 pr-8 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer transition-colors"
+                className="appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 py-2 pl-4 pr-8 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
             >
                 <option value="All">All Types</option>
                 <option value="SUV">SUV</option>
@@ -39,7 +38,7 @@ const CarFilters: React.FC<CarFiltersProps> = ({ filters, onFilterChange, result
             <select 
                 value={filters.transmission}
                 onChange={(e) => onFilterChange('transmission', e.target.value)}
-                className="appearance-none bg-white/50 hover:bg-white/80 border border-white/40 text-gray-700 py-2 pl-4 pr-8 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer transition-colors"
+                className="appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 py-2 pl-4 pr-8 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
             >
                 <option value="All">All Transmissions</option>
                 <option value="Automatic">Automatic</option>
@@ -55,7 +54,7 @@ const CarFilters: React.FC<CarFiltersProps> = ({ filters, onFilterChange, result
             <select 
                 value={filters.fuelType}
                 onChange={(e) => onFilterChange('fuelType', e.target.value)}
-                className="appearance-none bg-white/50 hover:bg-white/80 border border-white/40 text-gray-700 py-2 pl-4 pr-8 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer transition-colors"
+                className="appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 py-2 pl-4 pr-8 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
             >
                 <option value="All">All Fuels</option>
                 <option value="Petrol">Petrol</option>
@@ -69,7 +68,7 @@ const CarFilters: React.FC<CarFiltersProps> = ({ filters, onFilterChange, result
          </div>
       </div>
 
-      <div className="text-gray-600 text-sm font-medium bg-white/30 px-3 py-1 rounded-lg">
+      <div className="text-gray-500 text-sm font-medium">
          Found <span className="text-black font-bold">{resultCount}</span> available cars
       </div>
     </div>

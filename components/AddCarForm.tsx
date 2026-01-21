@@ -141,9 +141,8 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
   };
 
   return (
-    // Changed: bg-white -> bg-white/60 backdrop-blur-lg border-white/40
-    <div className="bg-white/60 backdrop-blur-lg rounded-2xl shadow-xl border border-white/40 p-8 mb-12 animate-fade-in relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-red-50/50 rounded-bl-full -z-0 pointer-events-none"></div>
+    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 mb-12 animate-fade-in relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-bl-full -z-0"></div>
       
       <h2 className="text-2xl font-bold text-gray-900 mb-8 flex items-center relative z-10">
         <span className="bg-red-600 text-white p-2.5 rounded-xl mr-3 shadow-lg shadow-red-600/20">
@@ -162,8 +161,8 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Main Thumbnail</label>
                 <div
-                    className={`border-2 border-dashed rounded-2xl h-48 flex flex-col items-center justify-center text-center transition-all cursor-pointer relative overflow-hidden group bg-white/40 ${
-                        isDragging ? 'border-red-500 bg-red-50/50' : 'border-gray-300 hover:border-red-400 hover:bg-white/60'
+                    className={`border-2 border-dashed rounded-2xl h-48 flex flex-col items-center justify-center text-center transition-all cursor-pointer relative overflow-hidden group ${
+                        isDragging ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-400 hover:bg-gray-50'
                     }`}
                     onClick={() => fileInputRef.current?.click()}
                 >
@@ -199,7 +198,7 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
                     ))}
                     <div 
                         onClick={() => galleryInputRef.current?.click()}
-                        className="h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/40 hover:border-red-400 bg-white/20"
+                        className="h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-red-400"
                     >
                         <span className="text-2xl text-gray-400">+</span>
                     </div>
@@ -211,12 +210,12 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Model Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" placeholder="e.g. Toyota Fortuner" required />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50" placeholder="e.g. Toyota Fortuner" required />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as CarCategory)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 outline-none">
+              <select value={category} onChange={(e) => setCategory(e.target.value as CarCategory)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white">
                   <option value="Hatchback">Hatchback</option>
                   <option value="Sedan">Sedan</option>
                   <option value="SUV">SUV</option>
@@ -225,18 +224,18 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Price per Day</label>
-              <input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" required />
+              <input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50" required />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Total Stock</label>
-              <input type="number" min="1" value={totalStock} onChange={(e) => setTotalStock(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" required />
+              <input type="number" min="1" value={totalStock} onChange={(e) => setTotalStock(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50" required />
             </div>
 
             <div className="md:col-span-2 grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Fuel</label>
-                <select value={fuelType} onChange={(e) => setFuelType(e.target.value as FuelType)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white/50 outline-none">
+                <select value={fuelType} onChange={(e) => setFuelType(e.target.value as FuelType)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white">
                   <option>Petrol</option>
                   <option>Diesel</option>
                   <option>Electric</option>
@@ -245,14 +244,14 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Trans.</label>
-                <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white/50 outline-none">
+                <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white">
                   <option>Manual</option>
                   <option>Automatic</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Seats</label>
-                <select value={seats} onChange={(e) => setSeats(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white/50 outline-none">
+                <select value={seats} onChange={(e) => setSeats(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white">
                   <option value={2}>2 Seater</option>
                   <option value={4}>4 Seater</option>
                   <option value={5}>5 Seater</option>
@@ -263,7 +262,7 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
           </div>
         </div>
         
-        <div className="pt-4 border-t border-gray-100/50">
+        <div className="pt-4 border-t border-gray-100">
              <button disabled={loading} type="submit" className="w-full bg-black hover:bg-gray-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all uppercase tracking-wider text-sm disabled:opacity-50">
               {loading ? 'Processing Images & Adding...' : 'Add Vehicle'}
             </button>

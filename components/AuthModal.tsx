@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -68,11 +67,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
-      {/* Changed: bg-white -> bg-white/95 backdrop-blur-2xl */}
-      <div className="relative bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in flex flex-col border border-white/40">
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in flex flex-col">
         {/* Modal Header */}
-        <div className="bg-black/90 p-6 text-center relative backdrop-blur-sm">
-          <button onClick={onClose} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors">
+        <div className="bg-black p-6 text-center relative">
+          <button onClick={onClose} className="absolute top-4 right-4 text-white/50 hover:text-white">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
           <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">
@@ -112,7 +110,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
                   type="email" 
                   value={loginEmail} 
                   onChange={(e) => setLoginEmail(e.target.value)} 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all bg-white/50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   required 
                 />
               </div>
@@ -122,7 +120,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
                   type="password" 
                   value={loginPass} 
                   onChange={(e) => setLoginPass(e.target.value)} 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all bg-white/50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   required 
                 />
               </div>
@@ -142,7 +140,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
                   type="text" 
                   value={signupName} 
                   onChange={(e) => setSignupName(e.target.value)} 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all bg-white/50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   required 
                 />
               </div>
@@ -152,7 +150,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
                   type="email" 
                   value={signupEmail} 
                   onChange={(e) => setSignupEmail(e.target.value)} 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all bg-white/50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   required 
                 />
               </div>
@@ -162,7 +160,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
                   type="tel" 
                   value={signupPhone} 
                   onChange={(e) => setSignupPhone(e.target.value)} 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all bg-white/50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   required 
                 />
               </div>
@@ -172,7 +170,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
                   type="password" 
                   value={signupPass} 
                   onChange={(e) => setSignupPass(e.target.value)} 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all bg-white/50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   required 
                 />
               </div>

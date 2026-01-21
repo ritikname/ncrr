@@ -23,8 +23,8 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
 
   if (bookings.length === 0) {
     return (
-      <div className="text-center py-24 bg-white/70 backdrop-blur-md rounded-3xl shadow-sm border border-white/50 animate-fade-in">
-        <div className="mx-auto w-24 h-24 bg-red-50/80 rounded-full flex items-center justify-center mb-6">
+      <div className="text-center py-24 bg-white rounded-3xl shadow-sm border border-gray-100 animate-fade-in">
+        <div className="mx-auto w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mb-6">
            <svg className="w-10 h-10 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
            </svg>
@@ -53,11 +53,10 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
         const balanceDue = totalPayable - advancePaid;
 
         return (
-          // Changed: bg-white -> bg-white/70 backdrop-blur-md border-white/50
-          <div key={booking.id} className={`bg-white/70 backdrop-blur-md rounded-3xl shadow-lg border border-white/50 overflow-hidden transition-all ${isCancelled ? 'opacity-60 grayscale-[0.8]' : 'hover:shadow-2xl'}`}>
+          <div key={booking.id} className={`bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden transition-all ${isCancelled ? 'opacity-60 grayscale-[0.8]' : 'hover:shadow-2xl'}`}>
             
             {/* --- HEADER SECTION --- */}
-            <div className="flex flex-col sm:flex-row border-b border-white/20 bg-gray-50/30">
+            <div className="flex flex-col sm:flex-row border-b border-gray-100 bg-gray-50/50">
                {/* Car Image (Left) */}
                <div className="sm:w-1/3 md:w-48 h-48 sm:h-auto relative bg-gray-200">
                   <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover absolute inset-0" />
@@ -78,16 +77,16 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                      </div>
                      <div className="flex flex-col items-end gap-2">
                         {isCancelled ? (
-                           <span className="bg-red-100/80 text-red-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Cancelled</span>
+                           <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Cancelled</span>
                         ) : (
                            <>
                               {isApproved ? (
-                                 <span className="bg-emerald-100/80 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
+                                 <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                                     Approved
                                  </span>
                               ) : (
-                                 <span className="bg-amber-100/80 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide animate-pulse">Pending Action</span>
+                                 <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide animate-pulse">Pending Action</span>
                               )}
                               <span className="text-xs font-medium text-gray-400">{new Date(booking.createdAt).toLocaleString()}</span>
                            </>
@@ -122,9 +121,9 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Customer Info */}
                   <div className="space-y-4">
-                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100/50 pb-2 mb-3">Customer Details</h4>
+                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Customer Details</h4>
                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-100/80 flex items-center justify-center text-gray-500 font-bold">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold">
                            {booking.customerName.charAt(0)}
                         </div>
                         <div>
@@ -133,7 +132,7 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                         </div>
                      </div>
                      {/* Location Block */}
-                     <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                     <div className="grid grid-cols-1 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <div>
                            <span className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Phone</span>
                            <span className="text-sm font-medium text-gray-900">{booking.customerPhone}</span>
@@ -143,9 +142,9 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                            <span className="text-sm font-medium text-gray-900 break-words leading-relaxed block">{booking.location || 'N/A'}</span>
                         </div>
                         {booking.userGps && (
-                           <div className="border-t border-gray-200/50 pt-3 mt-1">
+                           <div className="border-t border-gray-200 pt-3 mt-1">
                               <span className="block text-[10px] text-red-500 font-bold uppercase mb-1">User GPS (From Button)</span>
-                              <span className="text-xs font-mono text-gray-600 break-all bg-white/60 p-2 rounded border border-gray-200/50 block">{booking.userGps}</span>
+                              <span className="text-xs font-mono text-gray-600 break-all bg-white p-2 rounded border border-gray-200 block">{booking.userGps}</span>
                            </div>
                         )}
                      </div>
@@ -153,8 +152,8 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
 
                   {/* Payment Info */}
                   <div className="space-y-4">
-                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100/50 pb-2 mb-3">Payment Breakdown</h4>
-                     <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-100 space-y-2">
+                     <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Payment Breakdown</h4>
+                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">
                         <div className="flex justify-between">
                            <span className="text-sm text-gray-600">Trip Cost</span>
                            <span className="text-sm font-medium text-gray-900">₹{bookingCost.toLocaleString()}</span>
@@ -173,18 +172,18 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                            <span className="text-sm text-green-600">Advance Paid</span>
                            <span className="text-sm font-bold text-green-600">- ₹{advancePaid.toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between bg-white/60 p-2 rounded-lg border border-red-100">
+                        <div className="flex justify-between bg-white p-2 rounded-lg border border-red-100">
                            <span className="text-sm font-bold text-red-600">Balance to Collect</span>
                            <span className="text-sm font-black text-red-600">₹{balanceDue.toLocaleString()}</span>
                         </div>
                         <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between">
                            <span className="text-xs text-gray-500 uppercase font-bold">Advance Tx Ref</span>
-                           <span className="text-xs font-mono bg-white/60 border border-gray-100 px-2 py-0.5 rounded text-gray-700">{booking.transactionId}</span>
+                           <span className="text-xs font-mono bg-white border px-2 py-0.5 rounded text-gray-700">{booking.transactionId}</span>
                         </div>
                         {booking.securityDepositTransactionId && (
                            <div className="flex justify-between">
                              <span className="text-xs text-gray-500 uppercase font-bold">Security Tx Ref</span>
-                             <span className="text-xs font-mono bg-white/60 border border-gray-100 px-2 py-0.5 rounded text-gray-700">{booking.securityDepositTransactionId}</span>
+                             <span className="text-xs font-mono bg-white border px-2 py-0.5 rounded text-gray-700">{booking.securityDepositTransactionId}</span>
                            </div>
                         )}
                      </div>
@@ -207,7 +206,7 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                         {[{label: 'Aadhar Front', src: booking.aadharFront}, {label: 'Aadhar Back', src: booking.aadharBack}, {label: 'License', src: booking.licensePhoto}].map((doc, idx) => (
                            <div key={idx} className="group relative">
                               <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">{doc.label}</p>
-                              <div className="bg-gray-100/50 rounded-xl overflow-hidden border border-gray-200 relative cursor-pointer" onClick={() => doc.src && window.open(doc.src, '_blank')}>
+                              <div className="bg-gray-100 rounded-xl overflow-hidden border border-gray-200 relative cursor-pointer" onClick={() => doc.src && window.open(doc.src, '_blank')}>
                                  {doc.src ? (
                                     <>
                                        <img src={doc.src} className="w-full h-auto object-contain max-h-[300px]" alt={doc.label} />
@@ -227,7 +226,7 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                      </div>
                      <div className="mt-4">
                         <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Signature (Accepted Terms)</p>
-                        <div className="bg-gray-50/50 border border-gray-200 rounded-xl p-4 max-w-sm">
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 max-w-sm">
                             {booking.signature ? (
                                 <span className="font-serif italic text-xl text-gray-800">{booking.signature}</span>
                             ) : (
@@ -240,7 +239,7 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
             </div>
 
             {/* --- ACTION FOOTER --- */}
-            <div className="bg-gray-50/30 border-t border-gray-100/50 p-4 flex gap-3 justify-end items-center flex-wrap">
+            <div className="bg-gray-50 border-t border-gray-100 p-4 flex gap-3 justify-end items-center flex-wrap">
                <button
                   onClick={() => handleWhatsAppClick(booking)}
                   className="px-4 py-3 rounded-xl bg-[#25D366] text-white font-bold text-sm hover:bg-green-600 transition-colors flex items-center gap-2"
@@ -253,13 +252,13 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                   <>
                      <button 
                         onClick={() => { if(confirm('Are you sure you want to REJECT this booking?')) onReject(booking.id); }}
-                        className="px-6 py-3 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50/50 transition-colors"
+                        className="px-6 py-3 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-colors"
                      >
                         Reject
                      </button>
                      <button 
                         onClick={() => onApprove(booking.id)}
-                        className="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 shadow-lg shadow-emerald-200/50 transition-all transform active:scale-95"
+                        className="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all transform active:scale-95"
                      >
                         Approve & Send Email
                      </button>

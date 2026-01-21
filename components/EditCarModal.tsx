@@ -55,9 +55,8 @@ const EditCarModal: React.FC<EditCarModalProps> = ({ car, isOpen, onClose, onSav
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
-      {/* Changed: bg-white -> bg-white/95 backdrop-blur-2xl */}
-      <div className="relative bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden animate-fade-in flex flex-col max-h-[90vh] border border-white/40">
-        <div className="bg-black/90 backdrop-blur-sm p-6 text-white flex items-center justify-between">
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+        <div className="bg-black p-6 text-white flex items-center justify-between">
             <div>
                 <h2 className="text-xl font-black uppercase italic tracking-tighter">Edit Vehicle</h2>
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Ref: {car.id.slice(0, 8)}</p>
@@ -72,12 +71,12 @@ const EditCarModal: React.FC<EditCarModalProps> = ({ car, isOpen, onClose, onSav
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2">
                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Model Name</label>
-                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" required />
+                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-red-600 outline-none" required />
                     </div>
 
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Category</label>
-                        <select value={category} onChange={(e) => setCategory(e.target.value as CarCategory)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none">
+                        <select value={category} onChange={(e) => setCategory(e.target.value as CarCategory)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-red-600 outline-none">
                             <option value="Hatchback">Hatchback</option>
                             <option value="Sedan">Sedan</option>
                             <option value="SUV">SUV</option>
@@ -86,23 +85,23 @@ const EditCarModal: React.FC<EditCarModalProps> = ({ car, isOpen, onClose, onSav
 
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Price per Day (₹)</label>
-                        <input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" required />
+                        <input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-red-600 outline-none" required />
                     </div>
 
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Total Stock</label>
-                        <input type="number" min="1" value={totalStock} onChange={(e) => setTotalStock(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" required />
+                        <input type="number" min="1" value={totalStock} onChange={(e) => setTotalStock(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-red-600 outline-none" required />
                     </div>
 
                     <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Rating</label>
-                        <input type="number" step="0.1" min="0" max="5" value={rating} onChange={(e) => setRating(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 focus:ring-2 focus:ring-red-600 outline-none" required />
+                        <input type="number" step="0.1" min="0" max="5" value={rating} onChange={(e) => setRating(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-red-600 outline-none" required />
                     </div>
 
                     <div className="md:col-span-2 grid grid-cols-3 gap-4">
                         <div>
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Fuel</label>
-                            <select value={fuelType} onChange={(e) => setFuelType(e.target.value as FuelType)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white/50">
+                            <select value={fuelType} onChange={(e) => setFuelType(e.target.value as FuelType)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white">
                                 <option>Petrol</option>
                                 <option>Diesel</option>
                                 <option>Electric</option>
@@ -111,14 +110,14 @@ const EditCarModal: React.FC<EditCarModalProps> = ({ car, isOpen, onClose, onSav
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Trans.</label>
-                            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white/50">
+                            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white">
                                 <option>Manual</option>
                                 <option>Automatic</option>
                             </select>
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Seats</label>
-                            <select value={seats} onChange={(e) => setSeats(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white/50">
+                            <select value={seats} onChange={(e) => setSeats(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg bg-white">
                                 <option value={2}>2 Seater</option>
                                 <option value={4}>4 Seater</option>
                                 <option value={5}>5 Seater</option>

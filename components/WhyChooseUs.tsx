@@ -43,16 +43,16 @@ const WhyChooseUs: React.FC = () => {
 
   return (
     <>
-      {/* MOBILE VIEW - Compact 2x2 Grid (Dark Glass Theme) */}
+      {/* MOBILE VIEW - Compact 2x2 Grid (Black & White Theme) */}
       <div className="md:hidden w-full px-4 mb-12 animate-fade-in">
-        <div className="bg-black/70 backdrop-blur-md text-white rounded-3xl p-6 shadow-xl border border-white/10">
+        <div className="bg-black text-white rounded-3xl p-6 shadow-xl">
             <h2 className="text-xl font-black text-center uppercase italic mb-6 tracking-tighter">
-              Reasons to Choose <span className="text-gray-400">Us</span>
+              Reasons to Choose <span className="text-gray-500">Us</span>
             </h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-6">
               {reasons.map((item, index) => (
                 <div key={index} className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-white mb-2 border border-white/5 shadow-inner">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-white mb-2 border border-white/5">
                     {item.icon}
                   </div>
                   <h3 className="text-xs font-bold uppercase mb-0.5">{item.title}</h3>
@@ -63,8 +63,8 @@ const WhyChooseUs: React.FC = () => {
         </div>
       </div>
 
-      {/* DESKTOP VIEW - Horizontal Layout (Dark Glass Theme) */}
-      <div className="hidden md:block w-full bg-black/70 backdrop-blur-lg text-white py-12 px-4 sm:px-6 lg:px-8 rounded-3xl mb-12 shadow-2xl animate-fade-in border border-white/10">
+      {/* DESKTOP VIEW - Horizontal Layout (Black & White Theme) */}
+      <div className="hidden md:block w-full bg-black text-white py-12 px-4 sm:px-6 lg:px-8 rounded-3xl mb-12 shadow-2xl animate-fade-in">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-black uppercase italic mb-10 text-center tracking-tighter">
             Reasons to Choose <span className="text-gray-400">Us</span>
@@ -73,7 +73,7 @@ const WhyChooseUs: React.FC = () => {
           <div className="grid grid-cols-4 gap-8">
             {reasons.map((item, index) => (
               <div key={index} className="flex flex-col items-center text-center p-4 group">
-                <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-4 text-white group-hover:bg-white group-hover:text-black transition-colors duration-300 border border-white/5 shadow-lg">
+                <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-4 text-white group-hover:bg-white group-hover:text-black transition-colors duration-300">
                   {item.icon}
                 </div>
                 <h3 className="text-lg font-bold uppercase mb-2">{item.title}</h3>
