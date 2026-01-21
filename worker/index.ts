@@ -62,11 +62,11 @@ const ownerMiddleware = async (c: any, next: any) => {
 
 // --- HELPER: Notifications ---
 async function sendTelegramNotification(env: Bindings, message: string) {
-  // Hardcoded Credentials as requested
-  const token = "8402658132:AAH7lQcAyF9x3fqa7yAyQqYrP2_PTARa3ts";
-  const chatId = "8258614791";
+  const token = env.TELEGRAM_BOT_TOKEN;
+  const chatId = env.TELEGRAM_OWNER_CHAT_ID;
 
   if (!token || !chatId) {
+    console.warn("Telegram tokens missing");
     return;
   }
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
@@ -362,7 +362,7 @@ api.post('/auth/login', async (c) => {
       email: user.email, 
       role: role,
       exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
-    }, c.env.JWT_SECRET || 'dev-secret-key');
+    }, c.env.JWT_SECRET || 'dev-secret-key', 'HS256');
 
     setCookie(c, 'auth_token', token, {
       httpOnly: true,
