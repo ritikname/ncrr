@@ -19,15 +19,15 @@ const CustomerBookings: React.FC<CustomerBookingsProps> = ({ bookings }) => {
         </div>
         <button 
            onClick={() => navigate('/')}
-           className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition-colors"
+           className="px-4 py-2 bg-white/50 hover:bg-white text-gray-700 rounded-xl font-bold text-sm transition-colors border border-white/40"
         >
            ← Back to Home
         </button>
       </div>
 
       {bookings.length === 0 ? (
-        <div className="text-center py-24 bg-white rounded-3xl border border-gray-100 shadow-sm">
-           <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+        <div className="text-center py-24 bg-white/60 backdrop-blur-md rounded-3xl border border-white/50 shadow-sm">
+           <div className="w-20 h-20 bg-gray-50/80 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
               📭
            </div>
            <h3 className="text-xl font-bold text-gray-900 mb-2">No Bookings Found</h3>
@@ -47,18 +47,18 @@ const CustomerBookings: React.FC<CustomerBookingsProps> = ({ bookings }) => {
               
               // Status Logic
               let statusLabel = 'Pending Approval';
-              let statusColor = 'bg-amber-100 text-amber-700 border-amber-200';
+              let statusColor = 'bg-amber-100/80 text-amber-700 border-amber-200';
               
               if (isCancelled) {
                  statusLabel = 'Cancelled / Rejected';
-                 statusColor = 'bg-red-100 text-red-700 border-red-200';
+                 statusColor = 'bg-red-100/80 text-red-700 border-red-200';
               } else if (isApproved) {
                  statusLabel = 'Approved & Confirmed';
-                 statusColor = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                 statusColor = 'bg-emerald-100/80 text-emerald-700 border-emerald-200';
               }
 
               return (
-                 <div key={booking.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                 <div key={booking.id} className="bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 overflow-hidden hover:shadow-md transition-shadow">
                     <div className="flex flex-col md:flex-row">
                        {/* Image Section */}
                        <div className="w-full md:w-64 h-48 md:h-auto relative bg-gray-100 flex-shrink-0">
@@ -81,7 +81,7 @@ const CustomerBookings: React.FC<CustomerBookingsProps> = ({ bookings }) => {
                              </div>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/40 p-4 rounded-xl border border-white/30">
                              <div>
                                 <span className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Pick-up Date</span>
                                 <span className="text-sm font-bold text-gray-900">{new Date(booking.startDate).toLocaleDateString()}</span>
@@ -97,7 +97,7 @@ const CustomerBookings: React.FC<CustomerBookingsProps> = ({ bookings }) => {
                           </div>
                           
                           {/* Footer Info */}
-                          <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                          <div className="mt-4 pt-4 border-t border-gray-100/50 flex justify-between items-center">
                              <span className="text-xs text-gray-400 font-medium">Booked on {new Date(booking.createdAt).toLocaleDateString()}</span>
                              {isApproved && (
                                 <a 

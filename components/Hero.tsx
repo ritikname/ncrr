@@ -238,7 +238,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                     className="flex-shrink-0 px-2"
                     style={{ width: `${100 / itemsPerView}%` }}
                 >
-                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 transition-shadow pointer-events-none select-none">
+                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-xl bg-gray-100 transition-shadow pointer-events-none select-none">
                         <img 
                             src={slide.imageUrl} 
                             alt={slide.title} 
@@ -247,7 +247,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
                         <div className="absolute bottom-0 left-0 p-6 w-full">
-                            <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest bg-black/50 backdrop-blur-md px-2 py-1 rounded-md mb-2 inline-block">Featured</span>
+                            <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest bg-black/50 backdrop-blur-md px-2 py-1 rounded-md mb-2 inline-block border border-white/10">Featured</span>
                             <h3 className="text-xl md:text-2xl font-black text-white uppercase italic leading-tight mb-1">{slide.title}</h3>
                             <p className="text-sm font-medium text-gray-300 line-clamp-2">{slide.description}</p>
                         </div>
@@ -257,13 +257,14 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         </div>
       </div>
 
-      {/* Search Widget */}
+      {/* Search Widget - Glassmorphism */}
       <div className="absolute left-0 right-0 top-[100%] z-40 px-4 flex justify-center translate-y-4">
-          <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
+          {/* Changed: bg-white -> bg-white/40 backdrop-blur-xl border-white/50 */}
+          <div className="bg-white/40 backdrop-blur-xl p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-white/50 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
-                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center relative border border-gray-100 hover:border-red-200 transition-colors h-[62px]">
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1 select-none">
+                  <div className="bg-white/50 hover:bg-white/80 rounded-2xl p-3 flex flex-col justify-center relative border border-white/50 transition-colors h-[62px]">
+                     <label className="text-[10px] uppercase font-bold text-gray-600 mb-1 flex items-center gap-1 select-none">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Pick-up Point
                      </label>
@@ -287,9 +288,9 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   {/* Start Date */}
                   <div 
                     onClick={() => openPicker(startInputRef)}
-                    className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
+                    className="bg-white/50 hover:bg-white/80 rounded-2xl p-3 flex flex-col justify-center border border-white/50 transition-colors relative h-[62px] group cursor-pointer"
                   >
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Pick-up Date</label>
+                     <label className="text-[10px] uppercase font-bold text-gray-600 mb-1 pointer-events-none select-none">Pick-up Date</label>
                      
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none gap-2">
                         <span className={`text-sm font-bold truncate ${start ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -312,9 +313,9 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   {/* End Date */}
                   <div 
                     onClick={() => openPicker(endInputRef)}
-                    className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
+                    className="bg-white/50 hover:bg-white/80 rounded-2xl p-3 flex flex-col justify-center border border-white/50 transition-colors relative h-[62px] group cursor-pointer"
                   >
-                     <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Return Date</label>
+                     <label className="text-[10px] uppercase font-bold text-gray-600 mb-1 pointer-events-none select-none">Return Date</label>
                      
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none gap-2">
                         <span className={`text-sm font-bold truncate ${end ? 'text-gray-900' : 'text-gray-400'}`}>

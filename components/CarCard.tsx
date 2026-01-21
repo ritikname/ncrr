@@ -23,14 +23,15 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
   const isSoldOut = availableStock === 0;
 
   return (
+    // Changed: bg-white -> bg-white/60 backdrop-blur-md border-white/40
     <div 
-      className={`relative bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 ${isSoldOut && !isOwner ? 'opacity-75 grayscale-[0.5]' : ''}`}
+      className={`relative bg-white/60 backdrop-blur-md rounded-3xl p-5 shadow-xl border border-white/40 hover:bg-white/80 hover:scale-[1.02] transition-all duration-300 group ${isSoldOut && !isOwner ? 'opacity-75 grayscale-[0.5]' : ''}`}
       style={{ animation: `fadeIn 0.5s ease-out ${index * 0.1}s backwards` }}
     >
       {/* Top Row: Name and Category */}
       <div className="flex justify-between items-start mb-2">
         <div>
-           <h3 className="text-lg font-extrabold text-gray-900 leading-tight">{car.name}</h3>
+           <h3 className="text-lg font-extrabold text-gray-900 leading-tight group-hover:text-red-600 transition-colors">{car.name}</h3>
            {isOwner && (
                <div className="flex gap-2 mt-1">
                  <button onClick={() => onEdit(car)} className="text-xs text-blue-600 font-bold hover:underline">Edit</button>
@@ -39,16 +40,16 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
                </div>
            )}
         </div>
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{car.category}</span>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider bg-white/50 px-2 py-1 rounded-lg border border-white/50">{car.category}</span>
       </div>
 
       <div className="flex gap-4">
         {/* Left Column: Image */}
         <div 
-          className="w-32 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-xl cursor-pointer overflow-hidden"
+          className="w-32 h-24 flex-shrink-0 flex items-center justify-center bg-white/50 rounded-xl cursor-pointer overflow-hidden border border-white/30"
           onClick={() => onViewGallery(car)}
         >
-             <img src={car.imageBase64} className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500" alt={car.name} />
+             <img src={car.imageBase64} className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500 drop-shadow-lg" alt={car.name} />
         </div>
 
         {/* Right Column: Specs & Actions */}
@@ -83,17 +84,17 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
               </div>
               
               {isOwner ? (
-                <div className="text-[10px] font-bold text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                <div className="text-[10px] font-bold text-gray-600 bg-white/50 border border-white/50 px-3 py-1 rounded-full backdrop-blur-sm">
                    {availableStock} Left
                 </div>
               ) : (
                 <button
                     onClick={() => onBook(car)}
                     disabled={isSoldOut}
-                    className={`px-8 py-2 rounded-full font-bold text-sm shadow-lg transition-all active:scale-95 ${
+                    className={`px-8 py-2 rounded-full font-bold text-sm shadow-lg transition-all active:scale-95 border border-white/20 ${
                         isSoldOut 
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
-                        : 'bg-[#FF4500] hover:bg-red-600 text-white shadow-orange-200'
+                        : 'bg-[#FF4500] hover:bg-red-600 text-white shadow-orange-500/30'
                     }`}
                 >
                     {isSoldOut ? 'SOLD' : 'BOOK'}
@@ -106,7 +107,7 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
       
       {/* Stock Overlay for Owners (Optional Visual Aid) */}
       {isOwner && availableStock === 0 && (
-         <div className="absolute top-4 right-4 bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded">
+         <div className="absolute top-4 right-4 bg-red-100/90 backdrop-blur-sm text-red-600 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200">
             Out of Stock
          </div>
       )}
