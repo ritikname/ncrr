@@ -170,8 +170,8 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         </div>
       </div>
 
-      {/* Search Widget - Kept Overlaying */}
-      <div className="absolute left-0 right-0 top-[100%] z-40 px-4 flex justify-center -translate-y-16 md:-translate-y-1/2">
+      {/* Search Widget - Lowered for better visibility */}
+      <div className="absolute left-0 right-0 top-[100%] z-40 px-4 flex justify-center -translate-y-6 md:-translate-y-1/2">
           <div className="bg-white p-5 rounded-[2rem] shadow-2xl w-full max-w-5xl border border-gray-100 relative">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   {/* Location */}
@@ -208,7 +208,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <span className={`text-sm font-bold ${start ? 'text-gray-900' : 'text-gray-400'}`}>
                             {start || 'Select Date'}
                         </span>
-                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
 
                      <input 
@@ -233,7 +233,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <span className={`text-sm font-bold ${end ? 'text-gray-900' : 'text-gray-400'}`}>
                             {end || 'Select Date'}
                         </span>
-                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
 
                      <input 

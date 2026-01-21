@@ -117,6 +117,16 @@ export const App: React.FC = () => {
      setSearchCriteria(criteria);
      setHasSearched(true);
      showToast("Searching for cars...", "info");
+     
+     // Scroll to listings after short delay to allow render
+     setTimeout(() => {
+       const fleetSection = document.getElementById('fleet-section');
+       if (fleetSection) {
+         const yOffset = -100; // Offset for sticky header
+         const y = fleetSection.getBoundingClientRect().top + window.scrollY + yOffset;
+         window.scrollTo({ top: y, behavior: 'smooth' });
+       }
+     }, 200);
   };
 
   const handleFilterChange = (key: string, value: string) => {
