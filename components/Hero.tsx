@@ -36,8 +36,11 @@ const DEFAULT_SLIDES: HeroSlide[] = [
 
 const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const activeSlides = slides && slides.length > 0 ? slides : DEFAULT_SLIDES;
+  
+  // Infinite Scroll State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(true);
 
   // Search State
   const [location, setLocation] = useState('');
@@ -46,6 +49,10 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
   const startInputRef = useRef<HTMLInputElement>(null);
   const endInputRef = useRef<HTMLInputElement>(null);
+
+  // Create extended slides array for infinite loop (Double the array)
+  // This allows us to slide past the end to the "start" seamlessly
+  const extendedSlides = [...activeSlides, ...activeSlides];
 
   // Helper for local date YYYY-MM-DD
   const getTodayString = () => {
@@ -90,13 +97,39 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Auto-scroll logic (Every 1 second)
+  // Auto-scroll logic (Infinite Loop)
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
-    }, 1000); 
+      setCurrentIndex((prev) => prev + 1);
+    }, 2500); // 2.5s for smooth reading
     return () => clearInterval(timer);
-  }, [activeSlides.length]);
+  }, []);
+
+  // Handle seamless reset when reaching the end of the first set
+  useEffect(() => {
+    if (currentIndex >= activeSlides.length) {
+      // Allow the transition to finish (matches duration-500)
+      const timeout = setTimeout(() => {
+        setIsTransitioning(false); // Disable transition for instant jump
+        setCurrentIndex(currentIndex % activeSlides.length); // Jump to the real start index
+      }, 500);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [currentIndex, activeSlides.length]);
+
+  // Re-enable transition after the jump
+  useEffect(() => {
+    if (!isTransitioning) {
+      // Use requestAnimationFrame to ensure the DOM has updated with transition:none
+      // before turning it back on.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsTransitioning(true);
+        });
+      });
+    }
+  }, [isTransitioning]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,18 +157,24 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   };
 
   // Navigation handlers
-  const prevSlide = () => setCurrentIndex(prev => (prev - 1 + activeSlides.length) % activeSlides.length);
-  const nextSlide = () => setCurrentIndex(prev => (prev + 1) % activeSlides.length);
+  const prevSlide = () => {
+      // Basic prev logic (wrap to end if at 0)
+      setCurrentIndex(prev => (prev - 1 + activeSlides.length) % activeSlides.length);
+  };
+  
+  const nextSlide = () => {
+      setCurrentIndex(prev => prev + 1);
+  };
 
   return (
     <div className="relative w-full mb-[28rem] md:mb-32 mx-auto group animate-fade-in">
       
       {/* Navigation Buttons (Top Right) */}
       <div className="flex justify-end gap-3 mb-4 px-4 max-w-[98%] mx-auto">
-         <button onClick={prevSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+         <button onClick={prevSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors z-20">
             <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
          </button>
-         <button onClick={nextSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors">
+         <button onClick={nextSlide} className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors z-20">
             <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
          </button>
       </div>
@@ -143,12 +182,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
       {/* Carousel Container */}
       <div className="relative w-full overflow-hidden px-4 md:px-0">
         <div 
-            className="flex transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)` }}
+            className="flex"
+            style={{ 
+                transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
+                transition: isTransitioning ? 'transform 500ms ease-in-out' : 'none'
+            }}
         >
-            {activeSlides.map((slide) => (
+            {extendedSlides.map((slide, index) => (
                 <div 
-                    key={slide.id} 
+                    key={`${slide.id}-${index}`} 
                     className="flex-shrink-0 px-2"
                     style={{ width: `${100 / itemsPerView}%` }}
                 >
