@@ -40,11 +40,18 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
               50% { transform: translateY(0) rotate(0deg); }
               75% { transform: translateY(-0.5px) rotate(0.5deg); }
             }
+            @keyframes streetLightMove {
+              0% { transform: translateX(110vw); }
+              100% { transform: translateX(-100px); }
+            }
             .animate-road {
               animation: roadMove 0.4s linear infinite;
             }
             .animate-car {
               animation: carVibrate 0.15s ease-in-out infinite;
+            }
+            .animate-street-light {
+              animation: streetLightMove 2s linear infinite;
             }
           `}</style>
           
@@ -53,6 +60,25 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
               {/* Asphalt Texture overlay (optional subtle noise) */}
               <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/asphalt-dark.png')]"></div>
               
+              {/* Street Lights Animation (Passing in background) */}
+              <div className="absolute inset-0 w-full h-full">
+                 {[0, 1, 2].map((i) => (
+                    <div 
+                      key={i} 
+                      className="absolute top-0 h-full w-4 animate-street-light will-change-transform"
+                      style={{ animationDelay: `${i * 0.7}s` }}
+                    >
+                        {/* Pole */}
+                        <div className="w-1 h-full bg-gray-700 mx-auto"></div>
+                        {/* Light Fixture */}
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-2 bg-gray-800 rounded-full"></div>
+                        {/* Light Bulb & Glow */}
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2 h-2 bg-yellow-100 rounded-full blur-[1px]"></div>
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-32 h-32 bg-yellow-500/10 rounded-full blur-xl pointer-events-none"></div>
+                    </div>
+                 ))}
+              </div>
+
               {/* Dashed Center Line */}
               <div 
                 className="absolute top-1/2 left-0 w-full h-[4px] -mt-[2px] animate-road opacity-30"
