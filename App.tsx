@@ -340,6 +340,8 @@ export const App: React.FC = () => {
     <div className="min-h-screen flex flex-col font-sans text-gray-900 overflow-x-hidden relative">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Header viewMode={viewMode} onToggleView={setViewMode} />
+      {/* Spacer for fixed header */}
+      <div className="h-16"></div>
 
       <Routes>
         <Route path="/login" element={<Login />} />

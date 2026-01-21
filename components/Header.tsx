@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({ viewMode, onToggleView }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-gray-900 shadow-lg border-b border-gray-800 relative group">
+    <header className="fixed top-0 left-0 w-full z-50 bg-gray-900 shadow-lg border-b border-gray-800 group">
       {/* Background Wrapper with Overflow Hidden to contain Road/Car animations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <style>{`
