@@ -402,6 +402,12 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
   };
 
+  const handleBack = () => {
+    if (step > 1) {
+        setStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+    }
+  };
+
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aadharFront || !aadharBack || !licensePhoto) {
@@ -710,7 +716,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                                <div className="flex-1 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center justify-between">
                                   <span className="text-emerald-700 font-bold tracking-wide">{appliedPromo.code} Applied!</span>
                                   <button onClick={removePromo} className="text-emerald-500 hover:text-red-500 font-bold text-xs">REMOVE</button>
-                               </div>
+                                </div>
                            ) : (
                                <>
                                 <input 
@@ -829,12 +835,22 @@ const BookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 border-t border-gray-100 mt-auto bg-gray-50">
+        <div className="p-6 border-t border-gray-100 mt-auto bg-gray-50 flex gap-3">
+            {step > 1 && (
+                <button 
+                    onClick={handleBack}
+                    disabled={isProcessing}
+                    className="px-6 py-4 rounded-xl font-bold text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-100 transition-all uppercase tracking-wide text-sm"
+                >
+                    Back
+                </button>
+            )}
+
             {step < 4 ? (
                 <button 
                     onClick={handleNext}
                     disabled={step === 1 ? (days <= 0 || !!availabilityError) : (step === 2 ? !signatureName : !transactionId)}
-                    className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all ${
+                    className={`flex-1 py-4 rounded-xl font-bold text-white shadow-lg transition-all ${
                         ((step === 1 && (days <= 0 || !!availabilityError)) || 
                          (step === 2 && !signatureName) || 
                          (step === 3 && !transactionId)) 
@@ -848,7 +864,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                 <button 
                     onClick={handleFinalSubmit}
                     disabled={isProcessing}
-                    className="w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
+                    className="flex-1 py-4 rounded-xl font-bold text-white shadow-lg transition-all bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
                 >
                     {isProcessing ? 'Confirming...' : 'Submit Booking'}
                 </button>
