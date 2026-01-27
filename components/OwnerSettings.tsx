@@ -287,7 +287,7 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
               className="border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white transition-colors h-full min-h-[150px] relative overflow-hidden"
            >
               {slideImage ? (
-                 <img src={slideImage} alt="Preview" className="w-full h-full object-cover" />
+                 <img src={slideImage} alt="Preview" className="w-full h-full object-contain bg-black" />
               ) : (
                  <div className="text-center text-gray-400 text-sm font-bold">
                     + Upload Slide Image
@@ -315,8 +315,8 @@ const OwnerSettings: React.FC<OwnerSettingsProps> = ({ currentQrCode, heroSlides
 
         <div className="grid grid-cols-2 gap-4">
            {displaySlides.map(slide => (
-              <div key={slide.id} className="relative aspect-video rounded-xl overflow-hidden group">
-                 <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-cover" />
+              <div key={slide.id} className="relative aspect-video rounded-xl overflow-hidden group bg-black border border-gray-200">
+                 <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-contain" />
                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-4 text-center">
                     <h4 className="font-bold">{slide.title}</h4>
                     <p className="text-xs line-clamp-2">{slide.description}</p>

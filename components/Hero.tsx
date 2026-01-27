@@ -238,15 +238,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                     className="flex-shrink-0 px-2"
                     style={{ width: `${100 / itemsPerView}%` }}
                 >
-                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-gray-100 transition-shadow pointer-events-none select-none">
+                    <div className="relative h-[250px] md:h-[350px] rounded-3xl overflow-hidden shadow-md bg-black transition-shadow pointer-events-none select-none border border-gray-800">
                         <img 
                             src={slide.imageUrl} 
                             alt={slide.title} 
-                            className="w-full h-full object-cover select-none"
+                            className="w-full h-full object-contain select-none"
                             draggable={false}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
-                        <div className="absolute bottom-0 left-0 p-6 w-full">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 p-6 w-full pointer-events-none">
                             <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest bg-black/50 backdrop-blur-md px-2 py-1 rounded-md mb-2 inline-block">Featured</span>
                             <h3 className="text-xl md:text-2xl font-black text-white uppercase italic leading-tight mb-1">{slide.title}</h3>
                             <p className="text-sm font-medium text-gray-300 line-clamp-2">{slide.description}</p>

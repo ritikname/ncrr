@@ -181,24 +181,40 @@ export const App: React.FC = () => {
 
   const getOwnerFilteredData = () => {
     const q = ownerSearchTerm.toLowerCase().trim();
-    if (!q) return { cars, bookings, usersList };
     
+    // Helper to identify guests based on the dummy email pattern from onboarding
     const isGuest = (u: any) => u.email && u.email.startsWith('guest_');
 
-    if (ownerTab === 'fleet') {
-        const filteredCars = cars.filter(c => c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
-        return { cars: filteredCars, bookings, usersList };
-    } else if (ownerTab === 'bookings') {
-        const filteredBookings = bookings.filter(b => b.customerName.toLowerCase().includes(q) || b.carName.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.customerPhone.includes(q));
-        return { cars, bookings: filteredBookings, usersList };
-    } else if (ownerTab === 'users') {
-        const filteredUsers = usersList.filter(u => !isGuest(u) && (u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.phone.includes(q)));
-        return { cars, bookings, usersList: filteredUsers };
+    // 1. First filter by Tab Category (Logic independent of search)
+    let filteredUsers = usersList;
+    
+    if (ownerTab === 'users') {
+        // Show only Registered Users (exclude guests)
+        filteredUsers = usersList.filter(u => !isGuest(u));
     } else if (ownerTab === 'leads') {
-        const filteredUsers = usersList.filter(u => isGuest(u) && (u.name.toLowerCase().includes(q) || u.phone.includes(q)));
+        // Show only New Users (Guests)
+        filteredUsers = usersList.filter(u => isGuest(u));
+    }
+
+    // 2. If no search term, return categorized data
+    if (!q) {
         return { cars, bookings, usersList: filteredUsers };
     }
-    return { cars, bookings, usersList };
+
+    // 3. Apply Search Filter
+    if (ownerTab === 'fleet') {
+        const filteredCars = cars.filter(c => c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
+        return { cars: filteredCars, bookings, usersList: filteredUsers };
+    } else if (ownerTab === 'bookings') {
+        const filteredBookings = bookings.filter(b => b.customerName.toLowerCase().includes(q) || b.carName.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.customerPhone.includes(q));
+        return { cars, bookings: filteredBookings, usersList: filteredUsers };
+    } else if (ownerTab === 'users' || ownerTab === 'leads') {
+        // Filter the already categorized users list
+        filteredUsers = filteredUsers.filter(u => u.name.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q)) || u.phone.includes(q));
+        return { cars, bookings, usersList: filteredUsers };
+    }
+    
+    return { cars, bookings, usersList: filteredUsers };
   };
 
   const { cars: ownerCars, bookings: ownerBookings, usersList: ownerUsers } = getOwnerFilteredData();
