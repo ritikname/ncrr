@@ -154,10 +154,30 @@ const OwnerBookings: React.FC<OwnerBookingsProps> = ({ bookings, onReject, onApp
                   <div className="space-y-4">
                      <h4 className="text-xs font-bold text-red-600 uppercase tracking-widest border-b border-red-100 pb-2 mb-3">Payment Breakdown</h4>
                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">
-                        <div className="flex justify-between">
-                           <span className="text-sm text-gray-600">Trip Cost</span>
-                           <span className="text-sm font-medium text-gray-900">₹{bookingCost.toLocaleString()}</span>
-                        </div>
+                        
+                        {/* Promo Breakdown */}
+                        {booking.promoCode && booking.discountAmount ? (
+                             <>
+                                <div className="flex justify-between">
+                                   <span className="text-sm text-gray-500">Original Trip Cost</span>
+                                   <span className="text-sm font-medium text-gray-500 line-through">₹{(booking.totalCost + booking.discountAmount).toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                   <span className="text-sm text-emerald-600">Discount ({booking.promoCode})</span>
+                                   <span className="text-sm font-bold text-emerald-600">- ₹{booking.discountAmount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-gray-200 pb-2 mb-2">
+                                   <span className="text-sm font-bold text-gray-900">Net Trip Cost</span>
+                                   <span className="text-sm font-bold text-gray-900">₹{bookingCost.toLocaleString()}</span>
+                                </div>
+                             </>
+                        ) : (
+                            <div className="flex justify-between">
+                               <span className="text-sm text-gray-600">Trip Cost</span>
+                               <span className="text-sm font-medium text-gray-900">₹{bookingCost.toLocaleString()}</span>
+                            </div>
+                        )}
+
                         {isCashDeposit && (
                             <div className="flex justify-between">
                                 <span className="text-sm text-gray-600">Security Deposit (Cash)</span>

@@ -16,10 +16,49 @@ interface BookingModalProps {
 }
 
 const TERMS_TEXT = `
-Terms & Conditions – Self Drive Rental Cars
-Company Name: NCR Drive Rental Cars
-Email: ncrdrivecar@gmail.com Contact: +91-9971143873
-[... Terms Text Truncated for Brevity, assumes same as previous ...]
+TERMS & CONDITIONS - NCR DRIVE RENTAL CARS
+
+1. ELIGIBILITY & DOCUMENTS
+   • Valid Driving License (Original) and Aadhar Card/Passport are mandatory.
+   • Minimum age of the driver must be 21 years.
+   • Local IDs may be subject to additional verification.
+
+2. SECURITY DEPOSIT
+   • A refundable security deposit (₹5,000 or Asset) is required before pickup.
+   • Refund is processed within 48 hours of vehicle return, subject to inspection.
+   • Deductions will apply for damages, fuel shortage, challans, or Fastag usage.
+
+3. FUEL POLICY
+   • Fuel is NOT included in the rental amount.
+   • The vehicle must be returned with the same fuel level as at the time of pickup.
+   • No refund is provided for excess fuel left in the vehicle.
+
+4. SPEED LIMIT & COMPLIANCE
+   • Maximum speed limit: 100 km/hr (or as per government highway norms).
+   • Overspeeding Fine: ₹500 for the first instance, ₹2,000 for repeated violations.
+   • The customer is solely responsible for all traffic challans/fines incurred during the trip.
+
+5. DAMAGE & ACCIDENTS
+   • The customer is liable for any scratches, dents, or damages caused during the rental period.
+   • For major accidents (damages > ₹10,000), insurance may be claimed. The customer must pay the insurance difference + file charges.
+   • Downtime charges (50% of daily rent) apply for every day the car is in the garage for repairs caused by the customer.
+
+6. PROHIBITED ACTIVITIES
+   • NO SMOKING / NO ALCOHOL allowed inside the car. (Fine: ₹1,000 + Cleaning charges).
+   • No racing, drifting, or using the car for commercial purposes (taxi/goods transport).
+   • Taking the car to unauthorized regions (like Leh/Ladakh) without prior permission is strictly prohibited.
+
+7. LATE RETURN POLICY
+   • A grace period of 30 minutes is allowed.
+   • Late returns are charged at ₹500/hour for the first 3 hours.
+   • Delays beyond 3 hours will attract a full day's rental charge.
+
+8. CANCELLATION & REFUNDS
+   • 24+ hours before trip: 100% Refund of Advance.
+   • 12-24 hours before trip: 50% Refund of Advance.
+   • Less than 12 hours: No Refund.
+
+By signing digitally below, you acknowledge that you have read and agreed to these terms.
 `;
 
 const BookingModal: React.FC<BookingModalProps> = ({ 
@@ -293,7 +332,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
                discountAmount = Math.round(totalCost * (appliedPromo.percentage / 100));
                finalCost = totalCost - discountAmount;
             }
-            const finalAdvance = Math.round(finalCost * 0.10);
+            // Logic Change: Advance is 10% of ORIGINAL Total Cost, not Discounted Cost
+            const finalAdvance = Math.round(totalCost * 0.10);
 
             // Create FormData object
             const formData = new FormData();
@@ -309,6 +349,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
             formData.append('altPhone', altPhone);
             formData.append('startDate', startDate);
             formData.append('endDate', endDate);
+            // We store the Net Cost as totalCost in DB for balance logic
             formData.append('totalCost', finalCost.toString());
             formData.append('advanceAmount', finalAdvance.toString());
             formData.append('transactionId', transactionId);
@@ -348,7 +389,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
      discountAmount = Math.round(totalCost * (appliedPromo.percentage / 100));
      currentTotal = totalCost - discountAmount;
   }
-  const advanceAmount = Math.round(currentTotal * 0.10);
+  // Logic Change: Advance is 10% of ORIGINAL Total Cost for display as well
+  const advanceAmount = Math.round(totalCost * 0.10);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -448,8 +490,14 @@ const BookingModal: React.FC<BookingModalProps> = ({
                             <span className={`${appliedPromo ? 'line-through text-red-400' : 'text-gray-900 font-bold'}`}>₹{totalCost.toLocaleString()}</span>
                         </div>
                         {appliedPromo && (<div className="flex justify-between text-sm text-emerald-600 mb-1 font-bold"><span>Discount ({appliedPromo.code})</span><span>-₹{discountAmount.toLocaleString()}</span></div>)}
-                        <div className="flex justify-between items-center mt-2">
-                            <span className="font-bold text-red-900">Advance (10%)</span>
+                        {appliedPromo && (
+                             <div className="flex justify-between text-sm text-gray-800 mb-1 font-bold">
+                                <span>Net Trip Cost</span>
+                                <span>₹{currentTotal.toLocaleString()}</span>
+                             </div>
+                        )}
+                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-red-100">
+                            <span className="font-bold text-red-900">Advance (10% of Total)</span>
                             <span className="font-bold text-2xl text-red-600">₹{advanceAmount.toLocaleString()}</span>
                         </div>
                     </div>
