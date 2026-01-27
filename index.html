@@ -21,12 +21,30 @@
       .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
       .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
-      @keyframes driveAndDrift { 0% { transform: translateX(-120%) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 40% { transform: translateX(35vw) rotate(0deg); } 50% { transform: translateX(45vw) rotate(25deg) scale(1.1); } 60% { transform: translateX(55vw) rotate(-10deg) scale(1.0); } 100% { transform: translateX(120vw) rotate(0deg); opacity: 0; } }
-      @keyframes skidMarks { 0% { width: 0; opacity: 0; } 45% { width: 0; opacity: 0; left: 35vw; } 55% { width: 200px; opacity: 0.8; left: 35vw; } 100% { width: 200px; opacity: 0; left: 35vw; } }
+      
+      /* Updated Animation: Infinite Loop to prevent 'waiting' empty screen */
+      @keyframes driveAndDrift { 
+        0% { transform: translateX(-120%) rotate(0deg); opacity: 0; } 
+        10% { opacity: 1; } 
+        35% { transform: translateX(35vw) rotate(0deg); } 
+        45% { transform: translateX(45vw) rotate(25deg) scale(1.1); } 
+        55% { transform: translateX(55vw) rotate(-10deg) scale(1.0); } 
+        100% { transform: translateX(120vw) rotate(0deg); opacity: 0; } 
+      }
+      
+      @keyframes skidMarks { 
+        0% { width: 0; opacity: 0; } 
+        40% { width: 0; opacity: 0; left: 35vw; } 
+        50% { width: 200px; opacity: 0.8; left: 35vw; } 
+        100% { width: 200px; opacity: 0; left: 35vw; } 
+      }
+      
       @keyframes speedLines { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-      /* Sped up animation to 1.0s */
-      .drift-car { animation: driveAndDrift 1.0s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-      .skid-mark { animation: skidMarks 1.0s ease-out forwards; }
+      
+      /* Loop continuously (infinite) so there is no dead air if data loads slowly */
+      .drift-car { animation: driveAndDrift 1.2s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
+      .skid-mark { animation: skidMarks 1.2s ease-out infinite; }
+      
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #f1f1f1; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
