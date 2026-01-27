@@ -17,7 +17,8 @@ type Bindings = {
   OWNER_PASSWORD: string;      
   OWNER_PASSWORD_HASH: string; 
   GOOGLE_SCRIPT_URL: string;
-  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_LEAD_BOT_TOKEN: string;
+  TELEGRAM_BOOKING_BOT_TOKEN: string;
   TELEGRAM_OWNER_CHAT_ID: string;
 };
 
@@ -73,10 +74,7 @@ async function uploadToR2(bucket: R2Bucket, file: File, folder: string): Promise
 }
 
 // --- HELPER: Notifications ---
-async function sendTelegramNotification(env: Bindings, message: string) {
-  const token = env.TELEGRAM_BOT_TOKEN;
-  const chatId = env.TELEGRAM_OWNER_CHAT_ID;
-
+async function sendTelegramNotification(token: string, chatId: string, message: string) {
   if (!token || !chatId) {
     console.warn("Telegram tokens missing");
     return;
@@ -321,7 +319,8 @@ api.post('/auth/onboard', async (c) => {
        
        // Send Telegram Notification for New Lead
        const msg = `🌟 *New Lead Received*\n\nName: ${name}\nPhone: ${phone}`;
-       c.executionCtx.waitUntil(sendTelegramNotification(c.env, msg));
+       // Use LEAD Bot Token
+       c.executionCtx.waitUntil(sendTelegramNotification(c.env.TELEGRAM_LEAD_BOT_TOKEN, c.env.TELEGRAM_OWNER_CHAT_ID, msg));
 
     } else {
        // Update name if they came back
@@ -358,8 +357,11 @@ api.post('/auth/forgot-password', async (c) => {
   const origin = c.req.header('origin') || new URL(c.req.url).origin;
   const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
   c.executionCtx.waitUntil(sendEmailViaScript(c.env, { to_email: email, subject: "Action Required: Password Reset", customer_name: user.name, ref_id: "RESET", car_name: "Password Reset Request", start_date: "Reset Link:", end_date: "Below", pickup_location: resetLink, total_cost: "0", advance_amount: "0", owner_phone: "System" }));
+  
   const adminMsg = `🔐 *Password Reset Requested*\n\nUser: ${email}\nLink: ${resetLink}`;
-  c.executionCtx.waitUntil(sendTelegramNotification(c.env, adminMsg));
+  // Use BOOKING Bot Token (Admin)
+  c.executionCtx.waitUntil(sendTelegramNotification(c.env.TELEGRAM_BOOKING_BOT_TOKEN, c.env.TELEGRAM_OWNER_CHAT_ID, adminMsg));
+  
   return c.json({ success: true });
 });
 
@@ -576,7 +578,8 @@ api.post('/bookings', authMiddleware, async (c) => {
     if (promoCode) teleMsg += `\nPromo Applied: ${promoCode} (-₹${discountAmount})`;
     teleMsg += `\nDeposit: ${securityDepositType}`;
     
-    c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
+    // Use BOOKING Bot Token
+    c.executionCtx.waitUntil(sendTelegramNotification(c.env.TELEGRAM_BOOKING_BOT_TOKEN, c.env.TELEGRAM_OWNER_CHAT_ID, teleMsg));
 
     return c.json({ success: true, bookingId: id });
   } catch (e: any) {
