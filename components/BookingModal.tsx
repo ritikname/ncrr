@@ -174,6 +174,23 @@ const BookingModal: React.FC<BookingModalProps> = ({
     }
   };
 
+  // Safe Picker Trigger for iOS
+  const triggerPicker = (ref: React.RefObject<HTMLInputElement>, e: React.MouseEvent) => {
+     if (e.target === ref.current) return;
+     if (ref.current) {
+        try {
+            if (typeof ref.current.showPicker === 'function') {
+                ref.current.showPicker();
+            } else {
+                ref.current.focus();
+                ref.current.click();
+            }
+        } catch (err) {
+            console.warn('Picker trigger failed', err);
+        }
+     }
+  };
+
   // ... Geolocation, Conflict Logic, Dates (Same as before) ...
   const handleDetectLocation = () => {
     setLocLoading(true);
@@ -417,18 +434,18 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     </div>
                     {availabilityError && <div className="text-red-600 text-xs font-bold bg-red-50 p-2 rounded">{availabilityError}</div>}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="relative">
+                        <div className="relative" onClick={(e) => triggerPicker(startInputRef, e)}>
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pick-up</label>
                             <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3 cursor-pointer">
                                 <span className={`text-sm ${startDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1 pointer-events-none`}>{startDate || 'Select Date'}</span>
-                                <input ref={startInputRef} type="date" min={getTodayString()} value={startDate} onChange={handleStartDateChange} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}}/>
+                                <input ref={startInputRef} type="date" min={getTodayString()} value={startDate} onChange={handleStartDateChange} className="!absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}}/>
                             </div>
                         </div>
-                        <div className="relative">
+                        <div className="relative" onClick={(e) => triggerPicker(endInputRef, e)}>
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Return</label>
                             <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3 cursor-pointer">
                                 <span className={`text-sm ${endDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1 pointer-events-none`}>{endDate || 'Select Date'}</span>
-                                <input ref={endInputRef} type="date" min={startDate || getTodayString()} value={endDate} onChange={handleEndDateChange} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}} />
+                                <input ref={endInputRef} type="date" min={startDate || getTodayString()} value={endDate} onChange={handleEndDateChange} className="!absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}} />
                             </div>
                         </div>
                     </div>

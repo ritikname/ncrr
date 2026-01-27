@@ -66,6 +66,26 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     }
   };
 
+  // Safe Picker Trigger for iOS
+  const triggerPicker = (ref: React.RefObject<HTMLInputElement>, e: React.MouseEvent) => {
+    // If the click target is the input itself, let native behavior handle it to avoid double-toggle
+    if (e.target === ref.current) return;
+    
+    // Otherwise, programmatically open it
+    if (ref.current) {
+        try {
+            if (typeof ref.current.showPicker === 'function') {
+                ref.current.showPicker();
+            } else {
+                ref.current.focus();
+                ref.current.click();
+            }
+        } catch (err) {
+            console.warn('Picker trigger failed', err);
+        }
+    }
+  };
+
   // Responsive logic & Feature Detection
   useEffect(() => {
     const handleResize = () => {
@@ -274,6 +294,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
                   {/* Start Date */}
                   <div 
+                    onClick={(e) => triggerPicker(startInputRef, e)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Pick-up Date</label>
@@ -291,13 +312,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         min={getTodayString()}
                         value={start}
                         onChange={handleStartDateChange}
-                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
+                        // Added !absolute to override global styles and ensure coverage
+                        className="!absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
                         style={{opacity: 0.01}} 
                      />
                   </div>
 
                   {/* End Date */}
                   <div 
+                    onClick={(e) => triggerPicker(endInputRef, e)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Return Date</label>
@@ -315,7 +338,8 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         min={start || getTodayString()}
                         value={end}
                         onChange={handleEndDateChange}
-                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
+                        // Added !absolute to override global styles and ensure coverage
+                        className="!absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
                         style={{opacity: 0.01}} 
                      />
                   </div>
