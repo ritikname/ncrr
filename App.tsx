@@ -83,53 +83,45 @@ export const App: React.FC = () => {
       try {
         // Parallel fetching for speed
         const [carsData, settings, avail] = await Promise.all([
-            api.cars.getAll().catch(() => []), // Fail gracefully if cars fail
-            api.settings.get().catch(() => ({})),
-            api.bookings.getAvailability().catch(() => [])
+            api.cars.getAll(),
+            api.settings.get(),
+            api.bookings.getAvailability()
         ]);
 
-        if (carsData) setCars(carsData);
-        if (settings?.paymentQr) setQrCode(settings.paymentQr);
-        if (settings?.heroSlides) setHeroSlides(settings.heroSlides);
-        if (avail) setPublicBookings(avail);
+        setCars(carsData);
+        if (settings.paymentQr) setQrCode(settings.paymentQr);
+        if (settings.heroSlides) setHeroSlides(settings.heroSlides);
+        setPublicBookings(avail);
 
         if (user) {
-          const bookingsData = await api.bookings.getMyBookings().catch(() => []);
+          const bookingsData = await api.bookings.getMyBookings();
           setBookings(bookingsData);
           
           if (user.role === 'owner') {
-             const uList = await api.users.getAll().catch(() => []);
+             const uList = await api.users.getAll();
              setUsersList(uList);
           }
         }
       } catch (err) {
         console.error("Failed to load data", err);
-        // Do not show error toast here to avoid scaring user on weak connection, fail silently
+        showToast("Connection Error: Failed to load data", "error");
       }
   };
 
   useEffect(() => {
-    // 1. Minimum Animation Time (so the car drift looks cool)
-    // 2. Maximum Wait Time (Failsafe) - Reduced to 1.5s for speed
-    
+    // Check if new user
     if (!authLoading) {
-        // Start fetching data immediately
-        fetchData();
-
-        // Enforce the loading screen logic
-        const timer = setTimeout(() => {
-            setLoadingPhase('ready');
-            
-            // Check onboarding after loader is done
-            if (!user) {
-                const hasOnboarded = localStorage.getItem('ncr_onboarded');
-                if (!hasOnboarded) {
-                    setIsOnboardingOpen(true);
-                }
+        if (!user) {
+            const hasOnboarded = localStorage.getItem('ncr_onboarded');
+            if (!hasOnboarded) {
+                // Reduced delay to match faster car animation (1.2s)
+                setTimeout(() => setIsOnboardingOpen(true), 1200);
             }
-        }, 1500); // Max wait 1.5s
-
-        return () => clearTimeout(timer);
+        }
+        // Load data and immediately set ready state (removed artificial delay)
+        fetchData().finally(() => {
+           setLoadingPhase('ready');
+        });
     }
   }, [user, authLoading]);
 

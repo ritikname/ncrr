@@ -189,14 +189,15 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     onSearch({ location, start, end });
   };
 
-  const handleInputClick = (e: React.MouseEvent<HTMLInputElement>) => {
-    // Force calendar to open on click (Desktop chrome/edge fix)
+  const openPicker = (ref: React.RefObject<HTMLInputElement>) => {
     try {
-        if ('showPicker' in e.currentTarget) {
-            (e.currentTarget as any).showPicker();
+        if (ref.current && 'showPicker' in ref.current) {
+            (ref.current as any).showPicker();
+        } else {
+            ref.current?.focus();
         }
-    } catch (err) {
-        // Fallback or ignore if not supported
+    } catch (e) {
+        console.log("Picker open failed", e);
     }
   };
 
@@ -285,6 +286,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
 
                   {/* Start Date */}
                   <div 
+                    onClick={() => openPicker(startInputRef)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Pick-up Date</label>
@@ -302,14 +304,14 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         min={getTodayString()}
                         value={start}
                         onChange={handleStartDateChange}
-                        onClick={handleInputClick}
-                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
+                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
                         style={{opacity: 0.01}} 
                      />
                   </div>
 
                   {/* End Date */}
                   <div 
+                    onClick={() => openPicker(endInputRef)}
                     className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
                   >
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Return Date</label>
@@ -327,8 +329,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         min={start || getTodayString()}
                         value={end}
                         onChange={handleEndDateChange}
-                        onClick={handleInputClick}
-                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
+                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
                         style={{opacity: 0.01}} 
                      />
                   </div>
