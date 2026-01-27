@@ -318,6 +318,11 @@ api.post('/auth/onboard', async (c) => {
        await c.env.DB.prepare(
          'INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)'
        ).bind(name, dummyEmail, phone, dummyHash).run();
+       
+       // Send Telegram Notification for New Lead
+       const msg = `🌟 *New Lead Received*\n\nName: ${name}\nPhone: ${phone}`;
+       c.executionCtx.waitUntil(sendTelegramNotification(c.env, msg));
+
     } else {
        // Update name if they came back
        await c.env.DB.prepare('UPDATE users SET name = ?, phone = ? WHERE email = ?').bind(name, phone, dummyEmail).run();
