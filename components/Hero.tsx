@@ -189,6 +189,17 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
     onSearch({ location, start, end });
   };
 
+  const handleInputClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    // Force calendar to open on click (Desktop chrome/edge fix)
+    try {
+        if ('showPicker' in e.currentTarget) {
+            (e.currentTarget as any).showPicker();
+        }
+    } catch (err) {
+        // Fallback or ignore if not supported
+    }
+  };
+
   return (
     <div className="relative w-full mb-[28rem] md:mb-32 mx-auto group animate-fade-in select-none">
       
@@ -291,6 +302,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         min={getTodayString()}
                         value={start}
                         onChange={handleStartDateChange}
+                        onClick={handleInputClick}
                         className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
                         style={{opacity: 0.01}} 
                      />
@@ -315,6 +327,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         min={start || getTodayString()}
                         value={end}
                         onChange={handleEndDateChange}
+                        onClick={handleInputClick}
                         className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
                         style={{opacity: 0.01}} 
                      />

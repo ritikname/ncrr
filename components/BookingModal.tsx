@@ -241,6 +241,16 @@ const BookingModal: React.FC<BookingModalProps> = ({
     else setEndDate(selected);
   };
 
+  const handleInputClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    try {
+        if ('showPicker' in e.currentTarget) {
+            (e.currentTarget as any).showPicker();
+        }
+    } catch (err) {
+        // Ignore
+    }
+  };
+
   useEffect(() => {
     if (startDate && endDate && car) {
       const start = new Date(startDate);
@@ -421,14 +431,14 @@ const BookingModal: React.FC<BookingModalProps> = ({
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Pick-up</label>
                             <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3 cursor-pointer group">
                                 <span className={`text-sm ${startDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1 pointer-events-none`}>{startDate || 'Select Date'}</span>
-                                <input ref={startInputRef} type="date" min={getTodayString()} value={startDate} onChange={handleStartDateChange} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}}/>
+                                <input ref={startInputRef} type="date" min={getTodayString()} value={startDate} onChange={handleStartDateChange} onClick={handleInputClick} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}}/>
                             </div>
                         </div>
                         <div className="relative">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Return</label>
                             <div className="relative w-full h-10 border rounded-lg bg-transparent flex items-center px-3 cursor-pointer group">
                                 <span className={`text-sm ${endDate ? 'text-gray-900' : 'text-gray-400'} font-bold flex-1 pointer-events-none`}>{endDate || 'Select Date'}</span>
-                                <input ref={endInputRef} type="date" min={startDate || getTodayString()} value={endDate} onChange={handleEndDateChange} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}} />
+                                <input ref={endInputRef} type="date" min={startDate || getTodayString()} value={endDate} onChange={handleEndDateChange} onClick={handleInputClick} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none" style={{opacity: 0.01}} />
                             </div>
                         </div>
                     </div>

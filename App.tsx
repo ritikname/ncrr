@@ -83,56 +83,54 @@ export const App: React.FC = () => {
       try {
         // Parallel fetching for speed
         const [carsData, settings, avail] = await Promise.all([
-            api.cars.getAll(),
-            api.settings.get(),
-            api.bookings.getAvailability()
+            api.cars.getAll().catch(() => []), // Fail gracefully if cars fail
+            api.settings.get().catch(() => ({})),
+            api.bookings.getAvailability().catch(() => [])
         ]);
 
-        setCars(carsData);
-        if (settings.paymentQr) setQrCode(settings.paymentQr);
-        if (settings.heroSlides) setHeroSlides(settings.heroSlides);
-        setPublicBookings(avail);
+        if (carsData) setCars(carsData);
+        if (settings?.paymentQr) setQrCode(settings.paymentQr);
+        if (settings?.heroSlides) setHeroSlides(settings.heroSlides);
+        if (avail) setPublicBookings(avail);
 
         if (user) {
-          const bookingsData = await api.bookings.getMyBookings();
+          const bookingsData = await api.bookings.getMyBookings().catch(() => []);
           setBookings(bookingsData);
           
           if (user.role === 'owner') {
-             const uList = await api.users.getAll();
+             const uList = await api.users.getAll().catch(() => []);
              setUsersList(uList);
           }
         }
       } catch (err) {
         console.error("Failed to load data", err);
-        showToast("Connection Error: Failed to load data", "error");
+        // Do not show error toast here to avoid scaring user on weak connection, fail silently
       }
   };
 
   useEffect(() => {
-    // Failsafe: If loading takes longer than 3 seconds (reduced), force ready state
-    const failsafe = setTimeout(() => {
-        if (loadingPhase === 'drift') {
-            console.warn("Forcing ready state due to timeout");
-            setLoadingPhase('ready');
-        }
-    }, 3000); 
-
-    // Check if new user
+    // 1. Minimum Animation Time (so the car drift looks cool)
+    // 2. Maximum Wait Time (Failsafe) - Reduced to 1.5s for speed
+    
     if (!authLoading) {
-        if (!user) {
-            const hasOnboarded = localStorage.getItem('ncr_onboarded');
-            if (!hasOnboarded) {
-                // Reduced delay to match faster car animation (1.2s)
-                setTimeout(() => setIsOnboardingOpen(true), 1200);
+        // Start fetching data immediately
+        fetchData();
+
+        // Enforce the loading screen logic
+        const timer = setTimeout(() => {
+            setLoadingPhase('ready');
+            
+            // Check onboarding after loader is done
+            if (!user) {
+                const hasOnboarded = localStorage.getItem('ncr_onboarded');
+                if (!hasOnboarded) {
+                    setIsOnboardingOpen(true);
+                }
             }
-        }
-        // Load data and immediately set ready state (removed artificial delay)
-        fetchData().finally(() => {
-           setLoadingPhase('ready');
-           clearTimeout(failsafe);
-        });
+        }, 1500); // Max wait 1.5s
+
+        return () => clearTimeout(timer);
     }
-    return () => clearTimeout(failsafe);
   }, [user, authLoading]);
 
   const handleRefresh = () => {
