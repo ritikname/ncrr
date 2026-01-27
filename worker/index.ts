@@ -64,7 +64,7 @@ const ownerMiddleware = async (c: any, next: any) => {
 
 // --- HELPER: R2 Upload ---
 async function uploadToR2(bucket: R2Bucket, file: File, folder: string): Promise<string> {
-  // Sanitize filename
+  // Sanitize filename to be URL safe
   const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
   const uniqueKey = `${folder}/${crypto.randomUUID()}-${cleanName}`;
   
@@ -222,7 +222,7 @@ api.get('/images/:folder/:filename', async (c) => {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
-  headers.set('Content-Disposition', 'inline'); // Ensure it displays in browser
+  headers.set('Content-Disposition', 'inline'); // Important for displaying in browser
 
   return new Response(object.body, {
     headers,
@@ -304,7 +304,8 @@ api.post('/auth/onboard', async (c) => {
   try {
     if (!c.env.DB) return c.json({ error: 'Database not ready' }, 500);
     
-    // Create a unique identifier for guests to fit the table schema
+    // Create a dummy email for the guest lead (required by schema)
+    // Using phone number to ensure uniqueness
     const safePhone = phone.replace(/\D/g, '');
     const dummyEmail = `guest_${safePhone}@ncrdrive.com`;
     // Dummy hash (they cannot login with password, only here for record)
@@ -339,60 +340,34 @@ api.post('/auth/logout', (c) => {
   return c.json({ success: true });
 });
 
+// ... (Forgot Password / Reset Password - No Change) ...
 api.post('/auth/forgot-password', async (c) => {
   const { email } = await c.req.json();
   if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
-
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
   if (!user) return c.json({ success: true }); 
-
   const token = crypto.randomUUID();
   const tokenHash = await bcrypt.hash(token, 10);
   const expiresAt = Date.now() + (1000 * 60 * 60);
-
-  await c.env.DB.prepare(
-    'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE email = ?'
-  ).bind(tokenHash, expiresAt, email).run();
-
+  await c.env.DB.prepare('UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE email = ?').bind(tokenHash, expiresAt, email).run();
   const origin = c.req.header('origin') || new URL(c.req.url).origin;
   const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
-
-  c.executionCtx.waitUntil(sendEmailViaScript(c.env, {
-    to_email: email,
-    subject: "Action Required: Password Reset",
-    customer_name: user.name,
-    ref_id: "RESET",
-    car_name: "Password Reset Request",
-    start_date: "Reset Link:",
-    end_date: "Below",
-    pickup_location: resetLink,
-    total_cost: "0",
-    advance_amount: "0",
-    owner_phone: "System"
-  }));
-
+  c.executionCtx.waitUntil(sendEmailViaScript(c.env, { to_email: email, subject: "Action Required: Password Reset", customer_name: user.name, ref_id: "RESET", car_name: "Password Reset Request", start_date: "Reset Link:", end_date: "Below", pickup_location: resetLink, total_cost: "0", advance_amount: "0", owner_phone: "System" }));
   const adminMsg = `🔐 *Password Reset Requested*\n\nUser: ${email}\nLink: ${resetLink}`;
   c.executionCtx.waitUntil(sendTelegramNotification(c.env, adminMsg));
-
   return c.json({ success: true });
 });
 
 api.post('/auth/reset-password', async (c) => {
   const { email, token, newPassword } = await c.req.json();
   if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
-
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
   if (!user || !user.reset_token_expires || !user.reset_token_hash) return c.json({ error: 'Invalid or expired reset link' }, 400);
   if (Date.now() > user.reset_token_expires) return c.json({ error: 'Reset link has expired' }, 400);
-
   const isValid = await bcrypt.compare(token, user.reset_token_hash);
   if (!isValid) return c.json({ error: 'Invalid reset token' }, 400);
-
   const newPassHash = await bcrypt.hash(newPassword, 10);
-  await c.env.DB.prepare(
-    'UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL WHERE email = ?'
-  ).bind(newPassHash, email).run();
-
+  await c.env.DB.prepare('UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL WHERE email = ?').bind(newPassHash, email).run();
   return c.json({ success: true });
 });
 
@@ -406,7 +381,7 @@ api.get('/users', authMiddleware, ownerMiddleware, async (c) => {
   }
 });
 
-// --- CAR ROUTES ---
+// --- CAR ROUTES (Updated for R2) ---
 api.get('/cars', async (c) => {
   try {
     if (!c.env.DB) return c.json({ error: 'Database connection failed.' }, 500);
@@ -437,6 +412,7 @@ api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
   const galleryFiles = body['gallery[]']; 
 
   let imageUrl = '';
+  // Check if mainImage is a File (uploaded) or string (existing logic fallback)
   if (mainImage && mainImage instanceof File) {
     imageUrl = await uploadToR2(c.env.IMAGES_BUCKET, mainImage, 'cars');
   }
@@ -500,7 +476,7 @@ api.post('/bookings', authMiddleware, async (c) => {
     const body = await c.req.parseBody();
     const user = c.get('user');
 
-    // Parse Text Fields
+    // Parse Text Fields (FormData returns them as string or File)
     const carId = body['carId'] as string;
     const carName = body['carName'] as string;
     const carImage = body['carImage'] as string; 
@@ -648,7 +624,7 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// --- PROMO CODE ROUTES ---
+// ... (Promo Codes & Settings Routes are unchanged but included in logic) ...
 api.get('/promos', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
@@ -664,16 +640,9 @@ api.post('/promos', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
   const { code, percentage } = await c.req.json();
   const upperCode = code.toUpperCase().trim();
-
   try {
-     await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_codes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT UNIQUE NOT NULL,
-        percentage INTEGER NOT NULL,
-        created_at INTEGER DEFAULT (unixepoch())
-      )`).run();
+     await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_codes ( id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE NOT NULL, percentage INTEGER NOT NULL, created_at INTEGER DEFAULT (unixepoch()) )`).run();
   } catch(e) { }
-
   try {
     await c.env.DB.prepare('INSERT INTO promo_codes (code, percentage) VALUES (?, ?)').bind(upperCode, percentage).run();
     return c.json({ success: true });
@@ -695,26 +664,16 @@ api.post('/promos/validate', authMiddleware, async (c) => {
   const { code, email } = await c.req.json();
   const upperCode = code.toUpperCase().trim();
   const userEmail = email.toLowerCase().trim();
-
   try {
-    await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        promo_code TEXT NOT NULL,
-        user_email TEXT NOT NULL,
-        created_at INTEGER DEFAULT (unixepoch())
-      )`).run();
+    await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage ( id INTEGER PRIMARY KEY AUTOINCREMENT, promo_code TEXT NOT NULL, user_email TEXT NOT NULL, created_at INTEGER DEFAULT (unixepoch()) )`).run();
   } catch(e) { }
-
   const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
   if (!promo) return c.json({ error: 'Invalid Promo Code' }, 404);
-
   const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?').bind(upperCode, userEmail).first();
   if (usage) return c.json({ error: 'You have already used this promo code' }, 400);
-
   return c.json({ success: true, percentage: promo.percentage });
 });
 
-// --- SETTINGS ROUTES ---
 api.get('/settings', async (c) => {
   if (!c.env.DB) return c.json({});
   try {
@@ -731,7 +690,6 @@ api.get('/settings', async (c) => {
 api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
   const { paymentQr, heroSlides } = await c.req.json();
-  
   if (paymentQr !== undefined) {
     await c.env.DB.prepare('UPDATE settings SET payment_qr = ? WHERE id = 1').bind(paymentQr).run();
   }
@@ -741,7 +699,6 @@ api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// --- PUBLIC AVAILABILITY ROUTE ---
 api.get('/public/availability', async (c) => {
   if (!c.env.DB) return c.json([]);
   try {

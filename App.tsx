@@ -17,7 +17,7 @@ import Toast from './components/Toast';
 import WhyChooseUs from './components/WhyChooseUs';
 import FAQ from './components/FAQ';
 import CustomerBookings from './components/CustomerBookings';
-import UserOnboardingModal from './components/UserOnboardingModal'; // Imported
+import UserOnboardingModal from './components/UserOnboardingModal'; 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -27,7 +27,7 @@ import { api } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { STORAGE_KEYS } from './constants';
 
-type OwnerTab = 'fleet' | 'bookings' | 'users' | 'settings';
+type OwnerTab = 'fleet' | 'bookings' | 'users' | 'leads' | 'settings';
 
 export const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -182,6 +182,10 @@ export const App: React.FC = () => {
   const getOwnerFilteredData = () => {
     const q = ownerSearchTerm.toLowerCase().trim();
     if (!q) return { cars, bookings, usersList };
+    
+    // Helper to identify guests based on the dummy email pattern from onboarding
+    const isGuest = (u: any) => u.email && u.email.startsWith('guest_');
+
     if (ownerTab === 'fleet') {
         const filteredCars = cars.filter(c => c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
         return { cars: filteredCars, bookings, usersList };
@@ -189,7 +193,12 @@ export const App: React.FC = () => {
         const filteredBookings = bookings.filter(b => b.customerName.toLowerCase().includes(q) || b.carName.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.customerPhone.includes(q));
         return { cars, bookings: filteredBookings, usersList };
     } else if (ownerTab === 'users') {
-        const filteredUsers = usersList.filter(u => u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.phone.includes(q));
+        // Show only Registered Users (exclude guests)
+        const filteredUsers = usersList.filter(u => !isGuest(u) && (u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.phone.includes(q)));
+        return { cars, bookings, usersList: filteredUsers };
+    } else if (ownerTab === 'leads') {
+        // Show only New Users (Guests)
+        const filteredUsers = usersList.filter(u => isGuest(u) && (u.name.toLowerCase().includes(q) || u.phone.includes(q)));
         return { cars, bookings, usersList: filteredUsers };
     }
     return { cars, bookings, usersList };
@@ -390,18 +399,18 @@ export const App: React.FC = () => {
                       </button>
                    </div>
                    
-                   <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40">
-                      {[{ id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, { id: 'bookings', label: 'Bookings', icon: '📅' }, { id: 'users', label: 'Users', icon: '👥' }, { id: 'settings', label: 'Settings', icon: '⚙️' }].map((tab) => (
-                         <button key={tab.id} onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${ownerTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                   <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40 overflow-x-auto">
+                      {[{ id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, { id: 'bookings', label: 'Bookings', icon: '📅' }, { id: 'users', label: 'Registered', icon: '👤' }, { id: 'leads', label: 'New Users', icon: '🌟' }, { id: 'settings', label: 'Settings', icon: '⚙️' }].map((tab) => (
+                         <button key={tab.id} onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${ownerTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
                             <span className="text-lg">{tab.icon}</span>
                             <span className="hidden sm:inline">{tab.label}</span>
                          </button>
                       ))}
                    </div>
                    
-                   {(ownerTab === 'fleet' || ownerTab === 'bookings' || ownerTab === 'users') && (
+                   {(ownerTab === 'fleet' || ownerTab === 'bookings' || ownerTab === 'users' || ownerTab === 'leads') && (
                       <div className="relative">
-                         <input type="text" placeholder={ownerTab === 'fleet' ? "Search cars by name or category..." : ownerTab === 'bookings' ? "Search bookings by user, car, or Ref ID..." : "Search users by name, email or phone..."} value={ownerSearchTerm} onChange={(e) => setOwnerSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm" />
+                         <input type="text" placeholder={ownerTab === 'fleet' ? "Search cars..." : ownerTab === 'bookings' ? "Search bookings..." : "Search users..."} value={ownerSearchTerm} onChange={(e) => setOwnerSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm" />
                          <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                       </div>
                    )}
@@ -423,6 +432,18 @@ export const App: React.FC = () => {
 
                    {ownerTab === 'bookings' && (<OwnerBookings bookings={ownerBookings} onApprove={handleApproveBooking} onReject={handleRejectBooking} />)}
                    {ownerTab === 'users' && (<OwnerUsersList users={ownerUsers} />)}
+                   {ownerTab === 'leads' && (
+                      <div className="space-y-4 animate-fade-in">
+                         <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200 text-sm font-medium flex items-center gap-3">
+                            <span className="text-xl">🌟</span>
+                            <div>
+                               <p className="font-bold">New User Leads</p>
+                               <p className="text-xs opacity-80">These users filled the onboarding form but haven't created a full account yet.</p>
+                            </div>
+                         </div>
+                         <OwnerUsersList users={ownerUsers} />
+                      </div>
+                   )}
                    {ownerTab === 'settings' && (<OwnerSettings currentQrCode={qrCode} heroSlides={heroSlides} stats={{totalCars: cars.length, totalBookings: bookings.length, totalUsers: usersList.length}} onSave={handleSaveQr} onSaveSlides={handleSaveSlides} />)}
                 </div>
              )}
@@ -439,7 +460,7 @@ export const App: React.FC = () => {
           <div className="absolute inset-0 rounded-full border-2 border-[#25D366] animate-ping opacity-75"></div>
           <svg className="w-8 h-8 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
       </a>
-      <footer className="bg-black text-white mt-auto py-12"><div className="max-w-7xl mx-auto px-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8"><div className="space-y-4"><div className="flex flex-col leading-none select-none"><span className="text-3xl font-black text-red-600 tracking-tighter transform -skew-x-6">NCR</span><span className="text-3xl font-black text-white tracking-tighter transform -skew-x-6 -mt-2">DRIVE</span></div><p className="text-gray-400 text-sm max-w-xs">Delhi NCR's premium self-drive car rental service. Drive with freedom, drive with luxury.</p><div className="flex gap-4 pt-2"><a href="https://www.instagram.com/selfdrive.delhi?igsh=MWRhNTYwd3YyMnpjZA==" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-colors"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a></div></div><div className="space-y-4"><h4 className="font-bold text-lg text-white uppercase italic">Contact Us</h4><ul className="space-y-3"><li className="flex items-center gap-3 text-gray-400"><div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg></div><span>+91 98703 75798</span></li><li className="flex items-center gap-3 text-gray-400"><div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div><span>ncrdrivecar@gmail.com</span></li><li className="flex items-center gap-3 text-gray-400"><div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div><span>Delhi NCR (Serving Noida, Delhi, Gurgaon)</span></li></ul></div></div><div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">&copy; {new Date().getFullYear()} NCR Drive Rental Services. All rights reserved.</div></div></footer>
+      <footer className="bg-black text-white mt-auto py-12"><div className="max-w-7xl mx-auto px-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8"><div className="space-y-4"><div className="flex flex-col leading-none select-none"><span className="text-3xl font-black text-red-600 tracking-tighter transform -skew-x-6">NCR</span><span className="text-3xl font-black text-white tracking-tighter transform -skew-x-6 -mt-2">DRIVE</span></div><p className="text-gray-400 text-sm max-w-xs">Delhi NCR's premium self-drive car rental service. Drive with freedom, drive with luxury.</p><div className="flex gap-4 pt-2"><a href="https://www.instagram.com/selfdrive.delhi?igsh=MWRhNTYwd3YyMnpjZA==" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-colors"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a></div></div><div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">&copy; {new Date().getFullYear()} NCR Drive Rental Services. All rights reserved.</div></div></footer>
     </div>
   );
 };
