@@ -506,7 +506,7 @@ api.post('/bookings', authMiddleware, async (c) => {
 
     const id = crypto.randomUUID();
 
-    // Verify Promo Code Validity
+    // Verify Promo Code Validity & Usage STRICTLY against auth user
     if (promoCode) {
         const upperCode = promoCode.toUpperCase().trim();
         const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
@@ -517,10 +517,16 @@ api.post('/bookings', authMiddleware, async (c) => {
              user_email TEXT NOT NULL,
              created_at INTEGER DEFAULT (unixepoch())
            )`).run();
+           
            const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?')
               .bind(upperCode, user.email).first();
-           if (usage) return c.json({ error: 'Promo code already used' }, 400);
+           
+           if (usage) return c.json({ error: 'Promo code already used by this account.' }, 400);
+           
+           // If valid, mark as used now
            await c.env.DB.prepare('INSERT INTO promo_usage (promo_code, user_email) VALUES (?, ?)').bind(upperCode, user.email).run();
+        } else {
+             return c.json({ error: 'Invalid Promo Code.' }, 400);
         }
     }
 
@@ -661,16 +667,21 @@ api.delete('/promos/:id', authMiddleware, ownerMiddleware, async (c) => {
 
 api.post('/promos/validate', authMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
-  const { code, email } = await c.req.json();
+  const { code } = await c.req.json();
+  const user = c.get('user');
   const upperCode = code.toUpperCase().trim();
-  const userEmail = email.toLowerCase().trim();
+  
   try {
     await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage ( id INTEGER PRIMARY KEY AUTOINCREMENT, promo_code TEXT NOT NULL, user_email TEXT NOT NULL, created_at INTEGER DEFAULT (unixepoch()) )`).run();
   } catch(e) { }
+
   const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
   if (!promo) return c.json({ error: 'Invalid Promo Code' }, 404);
-  const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?').bind(upperCode, userEmail).first();
+  
+  // Strict usage check against auth token email
+  const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?').bind(upperCode, user.email).first();
   if (usage) return c.json({ error: 'You have already used this promo code' }, 400);
+  
   return c.json({ success: true, percentage: promo.percentage });
 });
 

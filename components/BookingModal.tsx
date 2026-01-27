@@ -368,9 +368,9 @@ const BookingModal: React.FC<BookingModalProps> = ({
             formData.append('licensePhoto', licenseFile);
 
             await onConfirm(formData);
-        } catch(e) {
+        } catch(e: any) {
             console.error("Booking error:", e);
-            alert("Booking Submission Failed. Please try again.");
+            alert(`Booking Failed: ${e.message || "Please try again."}`);
         } finally {
             setIsProcessing(false);
         }
