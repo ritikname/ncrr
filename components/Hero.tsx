@@ -29,9 +29,6 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
-  const startInputRef = useRef<HTMLInputElement>(null);
-  const endInputRef = useRef<HTMLInputElement>(null);
-
   // Tripling slides ensures we have enough buffer for a seamless loop
   const extendedSlides = [...activeSlides, ...activeSlides, ...activeSlides];
 
@@ -63,26 +60,6 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
         setEnd('');
     } else {
         setEnd(selected);
-    }
-  };
-
-  // Safe Picker Trigger for iOS
-  const triggerPicker = (ref: React.RefObject<HTMLInputElement>, e: React.MouseEvent) => {
-    // If the click target is the input itself, let native behavior handle it to avoid double-toggle
-    if (e.target === ref.current) return;
-    
-    // Otherwise, programmatically open it
-    if (ref.current) {
-        try {
-            if (typeof ref.current.showPicker === 'function') {
-                ref.current.showPicker();
-            } else {
-                ref.current.focus();
-                ref.current.click();
-            }
-        } catch (err) {
-            console.warn('Picker trigger failed', err);
-        }
     }
   };
 
@@ -293,10 +270,7 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                   </div>
 
                   {/* Start Date */}
-                  <div 
-                    onClick={(e) => triggerPicker(startInputRef, e)}
-                    className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
-                  >
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Pick-up Date</label>
                      
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none gap-2">
@@ -306,23 +280,18 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
 
+                     {/* Invisible Input covering the entire parent */}
                      <input 
-                        ref={startInputRef}
                         type="date" 
                         min={getTodayString()}
                         value={start}
                         onChange={handleStartDateChange}
-                        // Added !absolute to override global styles and ensure coverage
                         className="!absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
-                        style={{opacity: 0.01}} 
                      />
                   </div>
 
                   {/* End Date */}
-                  <div 
-                    onClick={(e) => triggerPicker(endInputRef, e)}
-                    className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group cursor-pointer"
-                  >
+                  <div className="bg-gray-50 rounded-2xl p-3 flex flex-col justify-center border border-gray-100 hover:border-red-200 transition-colors relative h-[62px] group">
                      <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 pointer-events-none select-none">Return Date</label>
                      
                      <div className="flex items-center justify-between w-full h-6 pointer-events-none gap-2">
@@ -332,15 +301,13 @@ const Hero: React.FC<HeroProps> = ({ slides, onSearch }) => {
                         <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                      </div>
 
+                     {/* Invisible Input covering the entire parent */}
                      <input 
-                        ref={endInputRef}
                         type="date" 
                         min={start || getTodayString()}
                         value={end}
                         onChange={handleEndDateChange}
-                        // Added !absolute to override global styles and ensure coverage
                         className="!absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer appearance-none"
-                        style={{opacity: 0.01}} 
                      />
                   </div>
 
