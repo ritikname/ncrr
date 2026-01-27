@@ -109,6 +109,14 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Failsafe: If loading takes longer than 4 seconds, force ready state
+    const failsafe = setTimeout(() => {
+        if (loadingPhase === 'drift') {
+            console.warn("Forcing ready state due to timeout");
+            setLoadingPhase('ready');
+        }
+    }, 4000); 
+
     // Check if new user
     if (!authLoading) {
         if (!user) {
@@ -121,8 +129,10 @@ export const App: React.FC = () => {
         // Load data and immediately set ready state (removed artificial delay)
         fetchData().finally(() => {
            setLoadingPhase('ready');
+           clearTimeout(failsafe);
         });
     }
+    return () => clearTimeout(failsafe);
   }, [user, authLoading]);
 
   const handleRefresh = () => {

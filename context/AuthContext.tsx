@@ -23,8 +23,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.auth.me()
-      .then(u => setUser(u))
+    // Add timeout to prevent hanging if API is unresponsive
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
+    
+    Promise.race([api.auth.me(), timeoutPromise])
+      .then(u => setUser(u as User))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
