@@ -109,13 +109,13 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Failsafe: If loading takes longer than 4 seconds, force ready state
+    // Failsafe: If loading takes longer than 3 seconds (reduced), force ready state
     const failsafe = setTimeout(() => {
         if (loadingPhase === 'drift') {
             console.warn("Forcing ready state due to timeout");
             setLoadingPhase('ready');
         }
-    }, 4000); 
+    }, 3000); 
 
     // Check if new user
     if (!authLoading) {
