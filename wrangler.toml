@@ -26,5 +26,6 @@ OWNER_PASSWORD = "change_me_in_dashboard"
 # Default hash placeholder (Specific password logic handled in worker)
 OWNER_PASSWORD_HASH = "$2a$10$w.2.1.2.3.4.5.6.7.8.9.0.1.2.3.4.5.6.7.8.9.0.1" 
 GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPZyzeLWmdPQpbVzpg6qYjWQ61iVj_8v-qS6zmjrhY17apui_235uwKzx_w37pP1QJbQ/exec"
-TELEGRAM_BOT_TOKEN = "8334445723:AAENXiV0zXFGmH9vQEzAQhZUjzd4lBYAQz4"
+TELEGRAM_BOT_TOKEN = "8402658132:AAH7lQcAyF9x3fqa7yAyQqYrP2_PTARa3ts"
+TELEGRAM_LEAD_BOT_TOKEN = "8334445723:AAENXiV0zXFGmH9vQEzAQhZUjzd4lBYAQz4"
 TELEGRAM_OWNER_CHAT_ID = "8258614791"
