@@ -3,17 +3,18 @@ import React, { useState, useRef } from 'react';
 import { FuelType, Transmission, CarCategory } from '../types';
 
 interface AddCarFormProps {
-  onAddCar: (data: any) => void;
+  onAddCar: (data: FormData) => void;
 }
 
 const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [mainImageBase64, setMainImageBase64] = useState<string>('');
   
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
+  
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-  const [galleryImagesBase64, setGalleryImagesBase64] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   
@@ -28,36 +29,12 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper: Compress Image for cars
-  const compressImage = (file: File): Promise<string> => {
+  // Helper: Just for previewing, not for sending
+  const createPreview = (file: File): Promise<string> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                // Reasonable max width for car listings (800px)
-                const MAX_WIDTH = 800; 
-                let width = img.width;
-                let height = img.height;
-
-                if (width > MAX_WIDTH) {
-                  height *= MAX_WIDTH / width;
-                  width = MAX_WIDTH;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, width, height);
-                // 0.7 quality for good car visibility but lower size
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
-            };
-            img.onerror = () => resolve("");
-        };
+        reader.onload = (event) => resolve(event.target?.result as string);
         reader.onerror = () => resolve("");
     });
   };
@@ -69,73 +46,69 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
             alert('Please upload an image file');
             return;
         }
-        try {
-            const base64 = await compressImage(f);
-            setMainImageBase64(base64);
-            setImagePreview(base64);
-        } catch(e) {
-            alert("Error processing image");
-        }
+        setMainImageFile(f);
+        const prev = await createPreview(f);
+        setMainImagePreview(prev);
     }
   };
 
   const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
+        const newFiles: File[] = [];
         const newPreviews: string[] = [];
-        const newBase64s: string[] = [];
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.type.startsWith('image/')) {
-                try {
-                    const base64 = await compressImage(file);
-                    newPreviews.push(base64);
-                    newBase64s.push(base64);
-                } catch(e) {}
+                newFiles.push(file);
+                const prev = await createPreview(file);
+                newPreviews.push(prev);
             }
         }
+        setGalleryFiles(prev => [...prev, ...newFiles]);
         setGalleryPreviews(prev => [...prev, ...newPreviews]);
-        setGalleryImagesBase64(prev => [...prev, ...newBase64s]);
     }
   };
 
   const removeGalleryImage = (index: number) => {
+    setGalleryFiles(prev => prev.filter((_, i) => i !== index));
     setGalleryPreviews(prev => prev.filter((_, i) => i !== index));
-    setGalleryImagesBase64(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price || !mainImageBase64 || !totalStock) {
+    if (!name || !price || !mainImageFile || !totalStock) {
       alert('Please fill in all fields and provide the main image.');
       return;
     }
     setLoading(true);
 
-    const carPayload = {
-        name,
-        price,
-        image: mainImageBase64,
-        gallery: galleryImagesBase64,
-        fuelType,
-        transmission,
-        category,
-        seats: seats.toString(),
-        rating,
-        totalStock
-    };
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('price', price);
+    formData.append('image', mainImageFile); // Append Raw File
+    formData.append('fuelType', fuelType);
+    formData.append('transmission', transmission);
+    formData.append('category', category);
+    formData.append('seats', seats.toString());
+    formData.append('rating', rating);
+    formData.append('totalStock', totalStock);
 
-    await onAddCar(carPayload);
+    galleryFiles.forEach(file => {
+        formData.append('gallery[]', file);
+    });
+
+    await onAddCar(formData);
     setLoading(false);
 
     // Reset form
     setName('');
     setPrice('');
-    setImagePreview(null);
-    setMainImageBase64('');
+    setMainImageFile(null);
+    setMainImagePreview(null);
+    setGalleryFiles([]);
     setGalleryPreviews([]);
-    setGalleryImagesBase64([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
@@ -166,9 +139,9 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
                     }`}
                     onClick={() => fileInputRef.current?.click()}
                 >
-                    {imagePreview ? (
+                    {mainImagePreview ? (
                         <>
-                        <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+                        <img src={mainImagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium">Change Image</div>
                         </>
                     ) : (
@@ -264,7 +237,7 @@ const AddCarForm: React.FC<AddCarFormProps> = ({ onAddCar }) => {
         
         <div className="pt-4 border-t border-gray-100">
              <button disabled={loading} type="submit" className="w-full bg-black hover:bg-gray-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all uppercase tracking-wider text-sm disabled:opacity-50">
-              {loading ? 'Processing Images & Adding...' : 'Add Vehicle'}
+              {loading ? 'Uploading Images & Adding...' : 'Add Vehicle'}
             </button>
         </div>
       </form>

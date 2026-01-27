@@ -6,9 +6,11 @@ import { sign, verify } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 
 type D1Database = any;
+type R2Bucket = any;
 
 type Bindings = {
   DB: D1Database;
+  IMAGES_BUCKET: R2Bucket;
   ASSETS: any;
   JWT_SECRET: string;
   OWNER_EMAIL: string;
@@ -60,6 +62,16 @@ const ownerMiddleware = async (c: any, next: any) => {
   await next();
 };
 
+// --- HELPER: R2 Upload ---
+async function uploadToR2(bucket: R2Bucket, file: File, folder: string): Promise<string> {
+  // Sanitize filename
+  const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+  const uniqueKey = `${folder}/${crypto.randomUUID()}-${cleanName}`;
+  
+  await bucket.put(uniqueKey, file);
+  return `/api/images/${uniqueKey}`;
+}
+
 // --- HELPER: Notifications ---
 async function sendTelegramNotification(env: Bindings, message: string) {
   const token = env.TELEGRAM_BOT_TOKEN;
@@ -87,7 +99,6 @@ async function sendTelegramNotification(env: Bindings, message: string) {
 async function sendEmailViaScript(env: Bindings, payload: any) {
   if (!env.GOOGLE_SCRIPT_URL) return;
   try {
-    // Using text/plain to match common Google Apps Script web app patterns
     await fetch(env.GOOGLE_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
@@ -102,7 +113,6 @@ async function sendEmailViaScript(env: Bindings, payload: any) {
 api.get('/init', async (c) => {
   if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
   try {
-    // 1. Create Tables
     await c.env.DB.batch([
       c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -178,10 +188,8 @@ api.get('/init', async (c) => {
       )`)
     ]);
     
-    // 2. Insert Default Settings
     await c.env.DB.prepare(`INSERT OR IGNORE INTO settings (id, payment_qr, hero_slides) VALUES (1, '', '[]')`).run();
 
-    // 3. Migrations (Try to add columns if they don't exist for existing DBs)
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
     try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
@@ -196,9 +204,451 @@ api.get('/init', async (c) => {
   }
 });
 
-// --- PROMO CODE ROUTES ---
+// --- R2 IMAGE PROXY ROUTE ---
+api.get('/images/:folder/:filename', async (c) => {
+  const folder = c.req.param('folder');
+  const filename = c.req.param('filename');
+  const key = `${folder}/${filename}`;
 
-// List Promos (Owner)
+  if (!c.env.IMAGES_BUCKET) {
+    return c.text('Image Bucket Not Configured', 500);
+  }
+
+  const object = await c.env.IMAGES_BUCKET.get(key);
+  if (!object) {
+    return c.text('Image Not Found', 404);
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('Content-Disposition', 'inline'); // Ensure it displays in browser
+
+  return new Response(object.body, {
+    headers,
+  });
+});
+
+// --- AUTH & USER ROUTES ---
+api.post('/auth/login', async (c) => {
+  try {
+    const { email, password } = await c.req.json();
+    let user;
+    let role = 'customer';
+
+    const ownerEmail = c.env.OWNER_EMAIL ? c.env.OWNER_EMAIL.trim().toLowerCase() : '';
+    const loginEmail = email ? email.trim().toLowerCase() : '';
+    const isOwnerEmail = ownerEmail && loginEmail === ownerEmail;
+
+    if (isOwnerEmail) {
+      let validOwner = false;
+      if (c.env.OWNER_PASSWORD && password === c.env.OWNER_PASSWORD) validOwner = true;
+      else if (c.env.OWNER_PASSWORD_HASH) validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
+
+      if (!validOwner) return c.json({ error: 'Invalid owner credentials' }, 401);
+      role = 'owner';
+      user = { id: 0, name: 'Owner', email: c.env.OWNER_EMAIL, role: 'owner' };
+    } else {
+      if (!c.env.DB) return c.json({ error: 'Database connection failed.' }, 500);
+      user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+      if (!user) return c.json({ error: 'Invalid credentials' }, 401);
+      
+      const validPass = await bcrypt.compare(password, user.password_hash);
+      if (!validPass) return c.json({ error: 'Invalid credentials' }, 401);
+
+      if (user.role) role = user.role;
+    }
+
+    const token = await sign({ 
+      id: user.id, 
+      name: user.name, 
+      email: user.email, 
+      role: role,
+      exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+    }, c.env.JWT_SECRET || 'dev-secret-key', 'HS256');
+
+    setCookie(c, 'auth_token', token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60
+    });
+
+    return c.json({ success: true, user: { name: user.name, email: user.email, role } });
+  } catch (e: any) {
+    return c.json({ error: e.message || 'Login failed' }, 500);
+  }
+});
+
+api.post('/auth/signup', async (c) => {
+  const { name, email, phone, password } = await c.req.json();
+  const hash = await bcrypt.hash(password, 10);
+  try {
+    if (!c.env.DB) return c.json({ error: 'Database connection failed.' }, 500);
+    await c.env.DB.prepare(
+      'INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)'
+    ).bind(name, email, phone, hash).run();
+    return c.json({ success: true });
+  } catch (e: any) {
+    if (e.message?.includes('UNIQUE')) return c.json({ error: 'Email already exists' }, 409);
+    return c.json({ error: 'Signup failed: ' + e.message }, 500);
+  }
+});
+
+// NEW: Guest Onboarding Route
+api.post('/auth/onboard', async (c) => {
+  const { name, phone } = await c.req.json();
+  if (!name || !phone) return c.json({ error: 'Missing fields' }, 400);
+
+  try {
+    if (!c.env.DB) return c.json({ error: 'Database not ready' }, 500);
+    
+    // Create a unique identifier for guests to fit the table schema
+    const safePhone = phone.replace(/\D/g, '');
+    const dummyEmail = `guest_${safePhone}@ncrdrive.com`;
+    // Dummy hash (they cannot login with password, only here for record)
+    const dummyHash = await bcrypt.hash('guest_user_no_login_possible', 10);
+
+    // Check if exists
+    const exists = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(dummyEmail).first();
+    
+    if (!exists) {
+       await c.env.DB.prepare(
+         'INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)'
+       ).bind(name, dummyEmail, phone, dummyHash).run();
+    } else {
+       // Update name if they came back
+       await c.env.DB.prepare('UPDATE users SET name = ?, phone = ? WHERE email = ?').bind(name, phone, dummyEmail).run();
+    }
+
+    return c.json({ success: true });
+  } catch (e: any) {
+    console.error("Onboarding error", e);
+    // Don't block UI if this fails
+    return c.json({ success: false, error: e.message }); 
+  }
+});
+
+api.get('/auth/me', authMiddleware, async (c) => {
+  return c.json(c.get('user'));
+});
+
+api.post('/auth/logout', (c) => {
+  deleteCookie(c, 'auth_token');
+  return c.json({ success: true });
+});
+
+api.post('/auth/forgot-password', async (c) => {
+  const { email } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  if (!user) return c.json({ success: true }); 
+
+  const token = crypto.randomUUID();
+  const tokenHash = await bcrypt.hash(token, 10);
+  const expiresAt = Date.now() + (1000 * 60 * 60);
+
+  await c.env.DB.prepare(
+    'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE email = ?'
+  ).bind(tokenHash, expiresAt, email).run();
+
+  const origin = c.req.header('origin') || new URL(c.req.url).origin;
+  const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
+
+  c.executionCtx.waitUntil(sendEmailViaScript(c.env, {
+    to_email: email,
+    subject: "Action Required: Password Reset",
+    customer_name: user.name,
+    ref_id: "RESET",
+    car_name: "Password Reset Request",
+    start_date: "Reset Link:",
+    end_date: "Below",
+    pickup_location: resetLink,
+    total_cost: "0",
+    advance_amount: "0",
+    owner_phone: "System"
+  }));
+
+  const adminMsg = `🔐 *Password Reset Requested*\n\nUser: ${email}\nLink: ${resetLink}`;
+  c.executionCtx.waitUntil(sendTelegramNotification(c.env, adminMsg));
+
+  return c.json({ success: true });
+});
+
+api.post('/auth/reset-password', async (c) => {
+  const { email, token, newPassword } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  if (!user || !user.reset_token_expires || !user.reset_token_hash) return c.json({ error: 'Invalid or expired reset link' }, 400);
+  if (Date.now() > user.reset_token_expires) return c.json({ error: 'Reset link has expired' }, 400);
+
+  const isValid = await bcrypt.compare(token, user.reset_token_hash);
+  if (!isValid) return c.json({ error: 'Invalid reset token' }, 400);
+
+  const newPassHash = await bcrypt.hash(newPassword, 10);
+  await c.env.DB.prepare(
+    'UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL WHERE email = ?'
+  ).bind(newPassHash, email).run();
+
+  return c.json({ success: true });
+});
+
+api.get('/users', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json([]);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT id, name, email, phone, created_at as joinedAt FROM users ORDER BY created_at DESC').all();
+    return c.json(results || []);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// --- CAR ROUTES ---
+api.get('/cars', async (c) => {
+  try {
+    if (!c.env.DB) return c.json({ error: 'Database connection failed.' }, 500);
+    const { results } = await c.env.DB.prepare('SELECT * FROM cars ORDER BY created_at DESC').all();
+    return c.json(results || []);
+  } catch (e: any) {
+    if (e.message.includes('no such table')) return c.json([]);
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// ADD CAR with Image Upload (Multipart)
+api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 503);
+  if (!c.env.IMAGES_BUCKET) return c.json({ error: 'Storage not configured' }, 503);
+
+  const body = await c.req.parseBody();
+  const name = body['name'] as string;
+  const price = body['price'] as string;
+  const fuelType = body['fuelType'] as string;
+  const transmission = body['transmission'] as string;
+  const category = body['category'] as string;
+  const seats = body['seats'] as string;
+  const rating = body['rating'] as string;
+  const totalStock = body['totalStock'] as string;
+  
+  const mainImage = body['image'];
+  const galleryFiles = body['gallery[]']; 
+
+  let imageUrl = '';
+  if (mainImage && mainImage instanceof File) {
+    imageUrl = await uploadToR2(c.env.IMAGES_BUCKET, mainImage, 'cars');
+  }
+
+  const galleryUrls: string[] = [];
+  if (galleryFiles) {
+     const files = Array.isArray(galleryFiles) ? galleryFiles : [galleryFiles];
+     for (const f of files) {
+        if (f instanceof File) {
+           const url = await uploadToR2(c.env.IMAGES_BUCKET, f, 'cars');
+           galleryUrls.push(url);
+        }
+     }
+  }
+  
+  const uuid = crypto.randomUUID();
+  const galleryJson = JSON.stringify(galleryUrls);
+
+  await c.env.DB.prepare(`
+    INSERT INTO cars (uuid, name, price_per_day, image_url, gallery_images, fuel_type, transmission, category, seats, rating, total_stock)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(uuid, name, price, imageUrl, galleryJson, fuelType, transmission, category, seats, rating, totalStock).run();
+  
+  return c.json({ success: true, id: uuid });
+});
+
+api.patch('/cars/:id/status', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+  const id = c.req.param('id');
+  const { status } = await c.req.json();
+  await c.env.DB.prepare('UPDATE cars SET status = ? WHERE uuid = ? OR id = ?').bind(status, id, id).run();
+  return c.json({ success: true });
+});
+
+api.patch('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const { name, pricePerDay, category, fuelType, transmission, seats, rating, totalStock } = body;
+  await c.env.DB.prepare(`
+    UPDATE cars 
+    SET name = ?, price_per_day = ?, category = ?, fuel_type = ?, transmission = ?, seats = ?, rating = ?, total_stock = ?
+    WHERE uuid = ? OR id = ?
+  `).bind(name, pricePerDay, category, fuelType, transmission, seats, rating, totalStock, id, id).run();
+  return c.json({ success: true });
+});
+
+api.delete('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+  const id = c.req.param('id');
+  await c.env.DB.prepare('DELETE FROM cars WHERE uuid = ? OR id = ?').bind(id, id).run();
+  return c.json({ success: true });
+});
+
+// --- BOOKING ROUTES ---
+api.post('/bookings', authMiddleware, async (c) => {
+  try {
+    if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+    if (!c.env.IMAGES_BUCKET) return c.json({ error: 'Storage not configured' }, 503);
+
+    const body = await c.req.parseBody();
+    const user = c.get('user');
+
+    // Parse Text Fields
+    const carId = body['carId'] as string;
+    const carName = body['carName'] as string;
+    const carImage = body['carImage'] as string; 
+    const customerName = body['customerName'] as string;
+    const customerPhone = body['customerPhone'] as string;
+    const startDate = body['startDate'] as string;
+    const endDate = body['endDate'] as string;
+    const totalCost = body['totalCost'] as string;
+    const advanceAmount = body['advanceAmount'] as string;
+    const transactionId = body['transactionId'] as string;
+    const location = body['location'] as string;
+    const userGps = body['userGps'] as string;
+    const securityDepositType = body['securityDepositType'] as string;
+    const securityDepositTransactionId = body['securityDepositTransactionId'] as string;
+    const signature = body['signature'] as string;
+    const promoCode = body['promoCode'] as string;
+    const discountAmount = body['discountAmount'] as string;
+
+    // Handle Files (Docs)
+    const aadharFrontFile = body['aadharFront'];
+    const aadharBackFile = body['aadharBack'];
+    const licenseFile = body['licensePhoto'];
+
+    const aadharFrontUrl = (aadharFrontFile instanceof File) ? await uploadToR2(c.env.IMAGES_BUCKET, aadharFrontFile, 'docs') : '';
+    const aadharBackUrl = (aadharBackFile instanceof File) ? await uploadToR2(c.env.IMAGES_BUCKET, aadharBackFile, 'docs') : '';
+    const licenseUrl = (licenseFile instanceof File) ? await uploadToR2(c.env.IMAGES_BUCKET, licenseFile, 'docs') : '';
+
+    const id = crypto.randomUUID();
+
+    // Verify Promo Code Validity
+    if (promoCode) {
+        const upperCode = promoCode.toUpperCase().trim();
+        const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
+        if (promo) {
+           await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             promo_code TEXT NOT NULL,
+             user_email TEXT NOT NULL,
+             created_at INTEGER DEFAULT (unixepoch())
+           )`).run();
+           const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?')
+              .bind(upperCode, user.email).first();
+           if (usage) return c.json({ error: 'Promo code already used' }, 400);
+           await c.env.DB.prepare('INSERT INTO promo_usage (promo_code, user_email) VALUES (?, ?)').bind(upperCode, user.email).run();
+        }
+    }
+
+    await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY,
+      car_id TEXT NOT NULL,
+      car_name TEXT,
+      car_image TEXT,
+      user_email TEXT NOT NULL,
+      customer_name TEXT,
+      customer_phone TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      total_cost INTEGER,
+      advance_amount INTEGER,
+      transaction_id TEXT,
+      status TEXT DEFAULT 'confirmed',
+      is_approved BOOLEAN DEFAULT 0,
+      aadhar_front TEXT,
+      aadhar_back TEXT,
+      license_photo TEXT,
+      location TEXT,
+      user_gps TEXT,
+      security_deposit_type TEXT,
+      security_deposit_transaction_id TEXT,
+      signature TEXT,
+      promo_code TEXT,
+      discount_amount INTEGER,
+      created_at INTEGER DEFAULT (unixepoch())
+    )`).run();
+
+    await c.env.DB.prepare(`
+      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, user_gps, security_deposit_type, security_deposit_transaction_id, signature, promo_code, discount_amount)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      id, carId, carName, carImage, user.email, customerName, customerPhone, startDate, endDate, totalCost, advanceAmount, transactionId, 
+      aadharFrontUrl, aadharBackUrl, licenseUrl, location, userGps || null, securityDepositType || null, 
+      securityDepositTransactionId || null, signature || null, promoCode || null, discountAmount || 0
+    ).run();
+    
+    let teleMsg = `🚗 New Booking Received!\n\nCustomer: ${customerName} (${customerPhone})\nCar: ${carName}\nDates: ${startDate} to ${endDate}\nTotal: ₹${totalCost}`;
+    if (promoCode) teleMsg += `\nPromo Applied: ${promoCode} (-₹${discountAmount})`;
+    teleMsg += `\nDeposit: ${securityDepositType}`;
+    
+    c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
+
+    return c.json({ success: true, bookingId: id });
+  } catch (e: any) {
+    console.error('Booking Insert Error:', e);
+    return c.json({ error: e.message || 'Booking failed' }, 500);
+  }
+});
+
+api.get('/bookings', authMiddleware, async (c) => {
+  try {
+    if (!c.env.DB) return c.json([]); 
+    const user = c.get('user');
+    let results;
+    if (user.role === 'owner') {
+       const stmt = await c.env.DB.prepare('SELECT * FROM bookings ORDER BY created_at DESC').all();
+       results = stmt.results;
+    } else {
+       const stmt = await c.env.DB.prepare('SELECT * FROM bookings WHERE user_email = ? ORDER BY created_at DESC').bind(user.email).all();
+       results = stmt.results;
+    }
+    return c.json(results || []);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
+  const id = c.req.param('id');
+  const { status, isApproved } = await c.req.json();
+  
+  if (status) await c.env.DB.prepare('UPDATE bookings SET status = ? WHERE id = ?').bind(status, id).run();
+  
+  if (isApproved !== undefined) {
+      const isApproveVal = isApproved ? 1 : 0;
+      await c.env.DB.prepare('UPDATE bookings SET is_approved = ? WHERE id = ?').bind(isApproveVal, id).run();
+      if (isApproved && c.env.GOOGLE_SCRIPT_URL) {
+          const booking = await c.env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
+          if (booking) {
+             const emailPayload = {
+               to_email: booking.user_email,
+               customer_name: booking.customer_name,
+               ref_id: booking.transaction_id,
+               car_name: booking.car_name,
+               start_date: booking.start_date,
+               end_date: booking.end_date,
+               pickup_location: booking.location,
+               total_cost: `₹${booking.total_cost || 0}`,
+               advance_amount: `₹${booking.advance_amount || 0}`,
+               owner_phone: "9870375798"
+             };
+             c.executionCtx.waitUntil(sendEmailViaScript(c.env, emailPayload));
+          }
+      }
+  }
+  return c.json({ success: true });
+});
+
+// --- PROMO CODE ROUTES ---
 api.get('/promos', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
@@ -210,13 +660,11 @@ api.get('/promos', authMiddleware, ownerMiddleware, async (c) => {
   }
 });
 
-// Add Promo (Owner)
 api.post('/promos', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
   const { code, percentage } = await c.req.json();
   const upperCode = code.toUpperCase().trim();
 
-  // Lazy Init Table to prevent "no such table" error on first use
   try {
      await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_codes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -224,7 +672,7 @@ api.post('/promos', authMiddleware, ownerMiddleware, async (c) => {
         percentage INTEGER NOT NULL,
         created_at INTEGER DEFAULT (unixepoch())
       )`).run();
-  } catch(e) { console.error("Auto-create promo_codes failed", e); }
+  } catch(e) { }
 
   try {
     await c.env.DB.prepare('INSERT INTO promo_codes (code, percentage) VALUES (?, ?)').bind(upperCode, percentage).run();
@@ -235,7 +683,6 @@ api.post('/promos', authMiddleware, ownerMiddleware, async (c) => {
   }
 });
 
-// Delete Promo (Owner)
 api.delete('/promos/:id', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
   const id = c.req.param('id');
@@ -243,14 +690,12 @@ api.delete('/promos/:id', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// Validate Promo (Customer)
 api.post('/promos/validate', authMiddleware, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
   const { code, email } = await c.req.json();
   const upperCode = code.toUpperCase().trim();
   const userEmail = email.toLowerCase().trim();
 
-  // Lazy Init Usage Table
   try {
     await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -258,23 +703,16 @@ api.post('/promos/validate', authMiddleware, async (c) => {
         user_email TEXT NOT NULL,
         created_at INTEGER DEFAULT (unixepoch())
       )`).run();
-  } catch(e) { console.error("Auto-create promo_usage failed", e); }
+  } catch(e) { }
 
-  // 1. Check if code exists
   const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
-  if (!promo) {
-    return c.json({ error: 'Invalid Promo Code' }, 404);
-  }
+  if (!promo) return c.json({ error: 'Invalid Promo Code' }, 404);
 
-  // 2. Check if user already used it
   const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?').bind(upperCode, userEmail).first();
-  if (usage) {
-    return c.json({ error: 'You have already used this promo code' }, 400);
-  }
+  if (usage) return c.json({ error: 'You have already used this promo code' }, 400);
 
   return c.json({ success: true, percentage: promo.percentage });
 });
-
 
 // --- SETTINGS ROUTES ---
 api.get('/settings', async (c) => {
@@ -307,438 +745,13 @@ api.post('/settings', authMiddleware, ownerMiddleware, async (c) => {
 api.get('/public/availability', async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
-      // NOTE: We now filter by is_approved = 1 so stock is only consumed when owner approves.
       const { results } = await c.env.DB.prepare(
           "SELECT car_id, start_date, end_date FROM bookings WHERE status != 'cancelled' AND is_approved = 1"
       ).all();
       return c.json(results || []);
   } catch (e) {
-      console.error(e);
       return c.json([]);
   }
-});
-
-// --- AUTH ROUTES ---
-api.post('/auth/login', async (c) => {
-  try {
-    const { email, password } = await c.req.json();
-    let user;
-    let role = 'customer';
-
-    const ownerEmail = c.env.OWNER_EMAIL ? c.env.OWNER_EMAIL.trim().toLowerCase() : '';
-    const loginEmail = email ? email.trim().toLowerCase() : '';
-    const isOwnerEmail = ownerEmail && loginEmail === ownerEmail;
-
-    if (isOwnerEmail) {
-      let validOwner = false;
-      if (c.env.OWNER_PASSWORD && password === c.env.OWNER_PASSWORD) {
-        validOwner = true;
-      } 
-      else if (c.env.OWNER_PASSWORD_HASH) {
-        try {
-          validOwner = await bcrypt.compare(password, c.env.OWNER_PASSWORD_HASH);
-        } catch(e) { console.error("Hash compare failed", e); }
-      }
-
-      if (!validOwner) return c.json({ error: 'Invalid owner credentials' }, 401);
-      role = 'owner';
-      user = { id: 0, name: 'Owner', email: c.env.OWNER_EMAIL, role: 'owner' };
-    } else {
-      if (!c.env.DB) {
-        return c.json({ error: 'Database connection failed. Please check D1 configuration.' }, 500);
-      }
-      user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
-      if (!user) return c.json({ error: 'Invalid credentials' }, 401);
-      
-      const validPass = await bcrypt.compare(password, user.password_hash);
-      if (!validPass) return c.json({ error: 'Invalid credentials' }, 401);
-
-      if (user.role) role = user.role;
-    }
-
-    const token = await sign({ 
-      id: user.id, 
-      name: user.name, 
-      email: user.email, 
-      role: role,
-      exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
-    }, c.env.JWT_SECRET || 'dev-secret-key', 'HS256');
-
-    setCookie(c, 'auth_token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60
-    });
-
-    return c.json({ success: true, user: { name: user.name, email: user.email, role } });
-  } catch (e: any) {
-    console.error('Login Error:', e);
-    return c.json({ error: e.message || 'Login failed' }, 500);
-  }
-});
-
-api.post('/auth/signup', async (c) => {
-  const { name, email, phone, password } = await c.req.json();
-  const hash = await bcrypt.hash(password, 10);
-  try {
-    if (!c.env.DB) {
-        return c.json({ error: 'Database connection failed. Please check D1 configuration.' }, 500);
-    }
-    await c.env.DB.prepare(
-      'INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)'
-    ).bind(name, email, phone, hash).run();
-    return c.json({ success: true });
-  } catch (e: any) {
-    if (e.message?.includes('UNIQUE')) return c.json({ error: 'Email already exists' }, 409);
-    return c.json({ error: 'Signup failed: ' + e.message }, 500);
-  }
-});
-
-api.get('/auth/me', authMiddleware, async (c) => {
-  return c.json(c.get('user'));
-});
-
-api.post('/auth/logout', (c) => {
-  deleteCookie(c, 'auth_token');
-  return c.json({ success: true });
-});
-
-api.post('/auth/forgot-password', async (c) => {
-  const { email } = await c.req.json();
-  
-  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
-
-  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
-  
-  // Return success even if user not found (security practice)
-  if (!user) {
-    return c.json({ success: true }); 
-  }
-
-  // Generate Token
-  const token = crypto.randomUUID();
-  const tokenHash = await bcrypt.hash(token, 10);
-  const expiresAt = Date.now() + (1000 * 60 * 60); // 1 Hour
-
-  // Store in DB
-  await c.env.DB.prepare(
-    'UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE email = ?'
-  ).bind(tokenHash, expiresAt, email).run();
-
-  // Generate Link
-  const origin = c.req.header('origin') || new URL(c.req.url).origin;
-  const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
-
-  // 1. Send Email to User (via Google Script)
-  // Mapping reset link to "pickup_location" because the Google Script template expects booking fields.
-  c.executionCtx.waitUntil(sendEmailViaScript(c.env, {
-    to_email: email,
-    subject: "Action Required: Password Reset",
-    customer_name: user.name,
-    ref_id: "RESET",
-    car_name: "Password Reset Request",
-    start_date: "Reset Link:",
-    end_date: "Below",
-    pickup_location: resetLink, // Putting the link here ensures it appears in the booking table
-    total_cost: "0",
-    advance_amount: "0",
-    owner_phone: "System"
-  }));
-
-  // 2. Send Admin Notification (Telegram)
-  const adminMsg = `🔐 *Password Reset Requested*\n\nUser: ${email}\nLink: ${resetLink}`;
-  c.executionCtx.waitUntil(sendTelegramNotification(c.env, adminMsg));
-
-  return c.json({ success: true });
-});
-
-api.post('/auth/reset-password', async (c) => {
-  const { email, token, newPassword } = await c.req.json();
-  
-  if (!c.env.DB) return c.json({ error: 'Database connection failed' }, 500);
-
-  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
-
-  if (!user || !user.reset_token_expires || !user.reset_token_hash) {
-    return c.json({ error: 'Invalid or expired reset link' }, 400);
-  }
-
-  if (Date.now() > user.reset_token_expires) {
-    return c.json({ error: 'Reset link has expired' }, 400);
-  }
-
-  const isValid = await bcrypt.compare(token, user.reset_token_hash);
-  if (!isValid) {
-    return c.json({ error: 'Invalid reset token' }, 400);
-  }
-
-  const newPassHash = await bcrypt.hash(newPassword, 10);
-
-  await c.env.DB.prepare(
-    'UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL WHERE email = ?'
-  ).bind(newPassHash, email).run();
-
-  return c.json({ success: true });
-});
-
-// --- USER ROUTES (Owner Only) ---
-api.get('/users', authMiddleware, ownerMiddleware, async (c) => {
-  if (!c.env.DB) return c.json([]);
-  try {
-    const { results } = await c.env.DB.prepare('SELECT id, name, email, phone, created_at as joinedAt FROM users ORDER BY created_at DESC').all();
-    return c.json(results || []);
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500);
-  }
-});
-
-// --- CAR ROUTES ---
-api.get('/cars', async (c) => {
-  try {
-    if (!c.env.DB) {
-        return c.json({ error: 'Database connection failed.' }, 500);
-    }
-    const { results } = await c.env.DB.prepare('SELECT * FROM cars ORDER BY created_at DESC').all();
-    return c.json(results || []);
-  } catch (e: any) {
-    if (e.message.includes('no such table')) return c.json([]);
-    return c.json({ error: e.message }, 500);
-  }
-});
-
-api.get('/images/:key', async (c) => {
-  return c.text('R2 Disabled (Enable Billing to use Images)', 200);
-});
-
-api.post('/cars', authMiddleware, ownerMiddleware, async (c) => {
-  if (!c.env.DB) {
-      return c.json({ error: 'Database not configured' }, 503);
-  }
-
-  const body = await c.req.json();
-  const { name, price, image, gallery, fuelType, transmission, category, seats, rating, totalStock } = body;
-  
-  const uuid = crypto.randomUUID();
-  const galleryJson = gallery ? JSON.stringify(gallery) : '[]';
-
-  await c.env.DB.prepare(`
-    INSERT INTO cars (uuid, name, price_per_day, image_url, gallery_images, fuel_type, transmission, category, seats, rating, total_stock)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(uuid, name, price, image, galleryJson, fuelType, transmission, category, seats, rating, totalStock).run();
-  
-  return c.json({ success: true, id: uuid });
-});
-
-api.patch('/cars/:id/status', authMiddleware, ownerMiddleware, async (c) => {
-  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
-  const id = c.req.param('id');
-  const { status } = await c.req.json();
-  await c.env.DB.prepare('UPDATE cars SET status = ? WHERE uuid = ? OR id = ?').bind(status, id, id).run();
-  return c.json({ success: true });
-});
-
-api.patch('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
-  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
-  const id = c.req.param('id');
-  const body = await c.req.json();
-  
-  const { name, pricePerDay, category, fuelType, transmission, seats, rating, totalStock } = body;
-  
-  await c.env.DB.prepare(`
-    UPDATE cars 
-    SET name = ?, price_per_day = ?, category = ?, fuel_type = ?, transmission = ?, seats = ?, rating = ?, total_stock = ?
-    WHERE uuid = ? OR id = ?
-  `).bind(name, pricePerDay, category, fuelType, transmission, seats, rating, totalStock, id, id).run();
-  
-  return c.json({ success: true });
-});
-
-api.delete('/cars/:id', authMiddleware, ownerMiddleware, async (c) => {
-  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
-  const id = c.req.param('id');
-  await c.env.DB.prepare('DELETE FROM cars WHERE uuid = ? OR id = ?').bind(id, id).run();
-  return c.json({ success: true });
-});
-
-// --- BOOKING ROUTES ---
-api.post('/bookings', authMiddleware, async (c) => {
-  try {
-    if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
-
-    const data = await c.req.json();
-    const user = c.get('user');
-    
-    // Fallbacks
-    const aadharFrontUrl = data.aadharFront || '';
-    const aadharBackUrl = data.aadharBack || '';
-    const licenseUrl = data.licensePhoto || '';
-    const safeCarName = data.carName || 'Unknown Car';
-    const safeCarImage = data.carImage || '';
-    const id = crypto.randomUUID();
-
-    // Verify Promo Code Validity Again (Server-side check)
-    if (data.promoCode) {
-        const upperCode = data.promoCode.toUpperCase().trim();
-        const promo = await c.env.DB.prepare('SELECT * FROM promo_codes WHERE code = ?').bind(upperCode).first();
-        if (promo) {
-           // Ensure Usage Table Exists
-           await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS promo_usage (
-             id INTEGER PRIMARY KEY AUTOINCREMENT,
-             promo_code TEXT NOT NULL,
-             user_email TEXT NOT NULL,
-             created_at INTEGER DEFAULT (unixepoch())
-           )`).run();
-
-           // Check usage
-           const usage = await c.env.DB.prepare('SELECT * FROM promo_usage WHERE promo_code = ? AND user_email = ?')
-              .bind(upperCode, user.email).first();
-           if (usage) {
-              return c.json({ error: 'Promo code already used' }, 400);
-           }
-           // Record Usage
-           await c.env.DB.prepare('INSERT INTO promo_usage (promo_code, user_email) VALUES (?, ?)').bind(upperCode, user.email).run();
-        }
-    }
-
-    // Ensure Tables Exist (Safety)
-    await c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS bookings (
-      id TEXT PRIMARY KEY,
-      car_id TEXT NOT NULL,
-      car_name TEXT,
-      car_image TEXT,
-      user_email TEXT NOT NULL,
-      customer_name TEXT,
-      customer_phone TEXT,
-      start_date TEXT,
-      end_date TEXT,
-      total_cost INTEGER,
-      advance_amount INTEGER,
-      transaction_id TEXT,
-      status TEXT DEFAULT 'confirmed',
-      is_approved BOOLEAN DEFAULT 0,
-      aadhar_front TEXT,
-      aadhar_back TEXT,
-      license_photo TEXT,
-      location TEXT,
-      user_gps TEXT,
-      security_deposit_type TEXT,
-      security_deposit_transaction_id TEXT,
-      signature TEXT,
-      promo_code TEXT,
-      discount_amount INTEGER,
-      created_at INTEGER DEFAULT (unixepoch())
-    )`).run();
-
-    // Lazy Migration Columns
-    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_type TEXT").run(); } catch(e) {}
-    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN security_deposit_transaction_id TEXT").run(); } catch(e) {}
-    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN signature TEXT").run(); } catch(e) {}
-    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN promo_code TEXT").run(); } catch(e) {}
-    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN discount_amount INTEGER").run(); } catch(e) {}
-    try { await c.env.DB.prepare("ALTER TABLE bookings ADD COLUMN user_gps TEXT").run(); } catch(e) {}
-
-    // INSERT: Using "OR NULL" logic to prevent D1 bind errors on undefined values
-    await c.env.DB.prepare(`
-      INSERT INTO bookings (id, car_id, car_name, car_image, user_email, customer_name, customer_phone, start_date, end_date, total_cost, advance_amount, transaction_id, aadhar_front, aadhar_back, license_photo, location, user_gps, security_deposit_type, security_deposit_transaction_id, signature, promo_code, discount_amount)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      id, 
-      data.carId, 
-      safeCarName, 
-      safeCarImage, 
-      user.email, 
-      data.customerName, 
-      data.customerPhone, 
-      data.startDate, 
-      data.endDate, 
-      data.totalCost, 
-      data.advanceAmount, 
-      data.transactionId, 
-      aadharFrontUrl, 
-      aadharBackUrl, 
-      licenseUrl, 
-      data.location, 
-      data.userGps || null,
-      data.securityDepositType || null, 
-      data.securityDepositTransactionId || null, 
-      data.signature || null,
-      data.promoCode || null,
-      data.discountAmount || 0
-    ).run();
-    
-    // Notification (Fire & Forget)
-    let teleMsg = `🚗 New Booking Received!\n\nCustomer: ${data.customerName} (${data.customerPhone})\nCar: ${safeCarName}\nDates: ${data.startDate} to ${data.endDate}\nTotal: ₹${data.totalCost}`;
-    if (data.promoCode) {
-        teleMsg += `\nPromo Applied: ${data.promoCode} (-₹${data.discountAmount})`;
-    }
-    teleMsg += `\nDeposit: ${data.securityDepositType}`;
-    
-    c.executionCtx.waitUntil(sendTelegramNotification(c.env, teleMsg));
-
-    return c.json({ success: true, bookingId: id });
-  } catch (e: any) {
-    console.error('Booking Insert Error:', e);
-    return c.json({ error: e.message || 'Booking failed during database insert' }, 500);
-  }
-});
-
-api.get('/bookings', authMiddleware, async (c) => {
-  try {
-    if (!c.env.DB) return c.json([]); 
-    const user = c.get('user');
-    
-    let results;
-    if (user.role === 'owner') {
-       const stmt = await c.env.DB.prepare('SELECT * FROM bookings ORDER BY created_at DESC').all();
-       results = stmt.results;
-    } else {
-       const stmt = await c.env.DB.prepare('SELECT * FROM bookings WHERE user_email = ? ORDER BY created_at DESC').bind(user.email).all();
-       results = stmt.results;
-    }
-
-    return c.json(results || []);
-  } catch (e: any) {
-    if (e.message.includes('no such table')) return c.json([]);
-    return c.json({ error: e.message }, 500);
-  }
-});
-
-api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
-  if (!c.env.DB) return c.json({ error: 'Database not configured' }, 500);
-  const id = c.req.param('id');
-  const { status, isApproved } = await c.req.json();
-  
-  if (status) {
-    await c.env.DB.prepare('UPDATE bookings SET status = ? WHERE id = ?').bind(status, id).run();
-  }
-
-  if (isApproved !== undefined) {
-      const isApproveVal = isApproved ? 1 : 0;
-      await c.env.DB.prepare('UPDATE bookings SET is_approved = ? WHERE id = ?').bind(isApproveVal, id).run();
-      
-      if (isApproved && c.env.GOOGLE_SCRIPT_URL) {
-          const booking = await c.env.DB.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
-          if (booking) {
-             const emailPayload = {
-               to_email: booking.user_email,
-               customer_name: booking.customer_name,
-               ref_id: booking.transaction_id,
-               car_name: booking.car_name,
-               start_date: booking.start_date,
-               end_date: booking.end_date,
-               pickup_location: booking.location,
-               total_cost: `₹${booking.total_cost || 0}`,
-               advance_amount: `₹${booking.advance_amount || 0}`,
-               owner_phone: "9870375798" // Hardcoded owner phone as fallback
-             };
-             
-             c.executionCtx.waitUntil(sendEmailViaScript(c.env, emailPayload));
-          }
-      }
-  }
-  return c.json({ success: true });
 });
 
 app.route('/api', api);

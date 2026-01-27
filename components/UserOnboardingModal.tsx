@@ -71,7 +71,7 @@ const UserOnboardingModal: React.FC<UserOnboardingModalProps> = ({ isOpen, onCom
             />
           </div>
           <button 
-            type="submit"
+            type="submit" 
             className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-500/30 transition-all mt-2 uppercase tracking-wide"
           >
             Get Started

@@ -17,6 +17,7 @@ import Toast from './components/Toast';
 import WhyChooseUs from './components/WhyChooseUs';
 import FAQ from './components/FAQ';
 import CustomerBookings from './components/CustomerBookings';
+import UserOnboardingModal from './components/UserOnboardingModal'; // Imported
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -35,7 +36,6 @@ export const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [usersList, setUsersList] = useState<(UserProfile & { joinedAt: number })[]>([]);
   
-  // Public Availability (Limited Data)
   const [publicBookings, setPublicBookings] = useState<{car_id: string, start_date: string, end_date: string}[]>([]);
 
   // Owner Dashboard State
@@ -61,19 +61,20 @@ export const App: React.FC = () => {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  
+  // Guest Onboarding State
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEYS.CARS);
     localStorage.removeItem(STORAGE_KEYS.VIEW_MODE);
   }, []);
 
-  // Data Fetching Function
   const fetchData = async () => {
       try {
         const carsData = await api.cars.getAll();
         setCars(carsData);
         
-        // Fetch Settings & Public Availability
         const settings = await api.settings.get();
         if (settings.paymentQr) setQrCode(settings.paymentQr);
         if (settings.heroSlides) setHeroSlides(settings.heroSlides);
@@ -97,11 +98,20 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Initial Load
-    fetchData().finally(() => {
-       setTimeout(() => setLoadingPhase('ready'), 2000);
-    });
-  }, [user]);
+    // Check if new user
+    if (!authLoading) {
+        if (!user) {
+            const hasOnboarded = localStorage.getItem('ncr_onboarded');
+            if (!hasOnboarded) {
+                // Short delay for visual effect after loader
+                setTimeout(() => setIsOnboardingOpen(true), 2500);
+            }
+        }
+        fetchData().finally(() => {
+           setTimeout(() => setLoadingPhase('ready'), 2000);
+        });
+    }
+  }, [user, authLoading]);
 
   const handleRefresh = () => {
       fetchData();
@@ -111,104 +121,81 @@ export const App: React.FC = () => {
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
   };
+  
+  const handleOnboardingComplete = async (name: string, phone: string) => {
+      try {
+          // Send to backend to store as "lead"
+          await api.auth.onboard({ name, phone });
+          localStorage.setItem('ncr_onboarded', 'true');
+          setIsOnboardingOpen(false);
+          showToast(`Welcome, ${name}!`);
+      } catch (e) {
+          console.error("Onboarding failed", e);
+      }
+  };
 
   // --- Search & Filter Logic ---
-  
   const handleSearch = (criteria: { location: string; start: string; end: string }) => {
      setSearchCriteria(criteria);
      setHasSearched(true);
      showToast("Searching for cars...", "info");
-     
-     // Scroll to listings after short delay to allow render
      setTimeout(() => {
        const fleetSection = document.getElementById('fleet-section');
        if (fleetSection) {
-         const yOffset = -100; // Offset for sticky header
+         const yOffset = -100; 
          const y = fleetSection.getBoundingClientRect().top + window.scrollY + yOffset;
          window.scrollTo({ top: y, behavior: 'smooth' });
        }
-     }, 500); // Increased timeout for reliability
+     }, 500);
   };
 
   const handleFilterChange = (key: string, value: string) => {
       setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  // Helper to count active/conflicting bookings for a car
   const getBookedCount = (carId: string) => {
      let checkStart = new Date().getTime();
      let checkEnd = new Date().getTime();
-
-     // If user searched for dates, check overlap with search range
      if (hasSearched && searchCriteria.start && searchCriteria.end) {
          checkStart = new Date(searchCriteria.start).getTime();
          checkEnd = new Date(searchCriteria.end).getTime();
      }
-
      return publicBookings.filter(b => {
          if (b.car_id !== carId) return false;
          const bStart = new Date(b.start_date).getTime();
          const bEnd = new Date(b.end_date).getTime();
-         // Check overlap (or if checking TODAY, if today falls within booking)
          return (checkStart <= bEnd && bStart <= checkEnd);
      }).length;
   };
 
   const filteredCars = cars.filter(car => {
-      // 1. Static Attribute Filters
       if (filters.category !== 'All' && car.category !== filters.category) return false;
       if (filters.transmission !== 'All' && car.transmission !== filters.transmission) return false;
       if (filters.fuelType !== 'All' && car.fuelType !== filters.fuelType) return false;
-      
-      // 2. Availability Filter (Only if searched)
       if (hasSearched && searchCriteria.start && searchCriteria.end) {
           const booked = getBookedCount(car.id);
-          // If conflicts >= totalStock, car is unavailable
-          if (booked >= (car.totalStock || 1)) {
-              return false; // Hide unavailable cars
-          }
+          if (booked >= (car.totalStock || 1)) return false; 
       }
-
       return true;
   });
 
-  // --- Owner Filtering Logic ---
   const getOwnerFilteredData = () => {
     const q = ownerSearchTerm.toLowerCase().trim();
     if (!q) return { cars, bookings, usersList };
-
     if (ownerTab === 'fleet') {
-        const filteredCars = cars.filter(c => 
-            c.name.toLowerCase().includes(q) || 
-            c.category.toLowerCase().includes(q)
-        );
+        const filteredCars = cars.filter(c => c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
         return { cars: filteredCars, bookings, usersList };
-    } 
-    else if (ownerTab === 'bookings') {
-        const filteredBookings = bookings.filter(b => 
-            b.customerName.toLowerCase().includes(q) ||
-            b.carName.toLowerCase().includes(q) ||
-            b.id.toLowerCase().includes(q) ||
-            b.customerPhone.includes(q)
-        );
+    } else if (ownerTab === 'bookings') {
+        const filteredBookings = bookings.filter(b => b.customerName.toLowerCase().includes(q) || b.carName.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.customerPhone.includes(q));
         return { cars, bookings: filteredBookings, usersList };
-    }
-    else if (ownerTab === 'users') {
-        const filteredUsers = usersList.filter(u => 
-            u.name.toLowerCase().includes(q) ||
-            u.email?.toLowerCase().includes(q) ||
-            u.phone.includes(q)
-        );
+    } else if (ownerTab === 'users') {
+        const filteredUsers = usersList.filter(u => u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.phone.includes(q));
         return { cars, bookings, usersList: filteredUsers };
     }
-    
     return { cars, bookings, usersList };
   };
 
   const { cars: ownerCars, bookings: ownerBookings, usersList: ownerUsers } = getOwnerFilteredData();
-
-
-  // --- Handlers ---
 
   const handleBookClick = (car: Car) => {
     setSelectedCar(car);
@@ -227,9 +214,7 @@ export const App: React.FC = () => {
   const handleAuthSuccess = () => {
     setIsAuthModalOpen(false);
     showToast("Logged in successfully!");
-    if (selectedCar) {
-      setIsBookingModalOpen(true);
-    }
+    if (selectedCar) setIsBookingModalOpen(true);
   };
 
   const handleAddCar = async (formData: FormData) => {
@@ -294,7 +279,6 @@ export const App: React.FC = () => {
      try {
        await api.bookings.updateStatus(id, { isApproved: true });
        showToast("Booking Approved", "success");
-       // Refetch everything to update availability
        fetchData();
      } catch (e) {
        showToast("Failed to approve", "error");
@@ -305,7 +289,6 @@ export const App: React.FC = () => {
       try {
        await api.bookings.updateStatus(id, { status: 'cancelled' });
        showToast("Booking Rejected", "info");
-       // Refetch everything to update availability
        fetchData();
      } catch (e) {
        showToast("Failed to reject", "error");
@@ -340,7 +323,6 @@ export const App: React.FC = () => {
     <div className="min-h-screen flex flex-col font-sans text-gray-900 overflow-x-hidden relative">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Header viewMode={viewMode} onToggleView={setViewMode} />
-      {/* Spacer for fixed header */}
       <div className="h-16"></div>
 
       <Routes>
@@ -349,7 +331,6 @@ export const App: React.FC = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         
-        {/* New Route for Customer Bookings */}
         <Route path="/my-bookings" element={
             <div className="flex-grow pt-8">
                 <CustomerBookings bookings={bookings} />
@@ -359,19 +340,11 @@ export const App: React.FC = () => {
         <Route path="/" element={
            <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
              {viewMode === 'customer' || !user || user.role !== 'owner' ? (
-                // --- CUSTOMER VIEW ---
                 <div className="animate-fade-in space-y-8">
-                  <Hero 
-                    slides={heroSlides} 
-                    onSearch={handleSearch}
-                  />
-
-                  {/* Car Listings / Search Results */}
+                  <Hero slides={heroSlides} onSearch={handleSearch} />
                   {hasSearched ? (
                      <div id="fleet-section">
                         <CarFilters filters={filters} onFilterChange={handleFilterChange} resultCount={filteredCars.length} />
-                        
-                        {/* CHANGED: 1 column on mobile, 2 on medium, 3 on xl to suit horizontal cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
                            {filteredCars.length > 0 ? (
                               filteredCars.map((car, index) => (
@@ -399,256 +372,74 @@ export const App: React.FC = () => {
                      </div>
                   ) : (
                      <div className="text-center py-20 bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-100 shadow-sm">
-                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
-                           📅
-                        </div>
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">📅</div>
                         <h3 className="text-2xl font-black text-gray-900 mb-2">Ready to Drive?</h3>
-                        <p className="text-gray-500 max-w-md mx-auto">
-                           Please select your <strong>Pick-up Location</strong> and <strong>Travel Dates</strong> above to view available cars.
-                        </p>
+                        <p className="text-gray-500 max-w-md mx-auto">Please select your <strong>Pick-up Location</strong> and <strong>Travel Dates</strong> above to view available cars.</p>
                      </div>
                   )}
-
-                  {/* Why Choose Us Section - NOW BELOW CARS */}
                   <WhyChooseUs />
-
-                  {/* FAQ Section */}
                   <FAQ />
-
                 </div>
              ) : (
-                // --- OWNER VIEW (TABBED) ---
                 <div className="animate-fade-in space-y-8">
                    <div className="bg-black text-white p-6 rounded-3xl text-center flex flex-col items-center justify-center relative">
                       <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
                       <p className="opacity-70">Manage your fleet, users, and bookings.</p>
-                      <button 
-                        onClick={handleRefresh}
-                        className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"
-                        title="Refresh Data"
-                      >
-                         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                         </svg>
+                      <button onClick={handleRefresh} className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all" title="Refresh Data">
+                         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                       </button>
                    </div>
                    
-                   {/* TAB NAVIGATION */}
                    <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40">
-                      {[
-                        { id: 'fleet', label: 'Fleet & Cars', icon: '🚗' },
-                        { id: 'bookings', label: 'Bookings', icon: '📅' },
-                        { id: 'users', label: 'Users', icon: '👥' },
-                        { id: 'settings', label: 'Settings', icon: '⚙️' }
-                      ].map((tab) => (
-                         <button
-                            key={tab.id}
-                            onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
-                               ownerTab === tab.id 
-                               ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' 
-                               : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                            }`}
-                         >
+                      {[{ id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, { id: 'bookings', label: 'Bookings', icon: '📅' }, { id: 'users', label: 'Users', icon: '👥' }, { id: 'settings', label: 'Settings', icon: '⚙️' }].map((tab) => (
+                         <button key={tab.id} onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${ownerTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
                             <span className="text-lg">{tab.icon}</span>
                             <span className="hidden sm:inline">{tab.label}</span>
                          </button>
                       ))}
                    </div>
                    
-                   {/* --- SEARCH BAR (Only for specific tabs) --- */}
                    {(ownerTab === 'fleet' || ownerTab === 'bookings' || ownerTab === 'users') && (
                       <div className="relative">
-                         <input 
-                            type="text"
-                            placeholder={
-                                ownerTab === 'fleet' ? "Search cars by name or category..." :
-                                ownerTab === 'bookings' ? "Search bookings by user, car, or Ref ID..." :
-                                "Search users by name, email or phone..."
-                            }
-                            value={ownerSearchTerm}
-                            onChange={(e) => setOwnerSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm"
-                         />
-                         <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                         </svg>
+                         <input type="text" placeholder={ownerTab === 'fleet' ? "Search cars by name or category..." : ownerTab === 'bookings' ? "Search bookings by user, car, or Ref ID..." : "Search users by name, email or phone..."} value={ownerSearchTerm} onChange={(e) => setOwnerSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm" />
+                         <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                       </div>
                    )}
 
-                   {/* --- FLEET TAB --- */}
                    {ownerTab === 'fleet' && (
                       <div className="space-y-6 animate-fade-in">
-                         {/* Collapsible Add Car Form */}
                          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
-                            <button 
-                              onClick={() => setShowAddCarForm(!showAddCarForm)}
-                              className="w-full p-4 flex items-center justify-between text-left font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                               <span className="flex items-center gap-2">
-                                  <span className="bg-red-100 text-red-600 w-8 h-8 rounded-full flex items-center justify-center text-lg">+</span>
-                                  Add New Vehicle
-                               </span>
+                            <button onClick={() => setShowAddCarForm(!showAddCarForm)} className="w-full p-4 flex items-center justify-between text-left font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                               <span className="flex items-center gap-2"><span className="bg-red-100 text-red-600 w-8 h-8 rounded-full flex items-center justify-center text-lg">+</span>Add New Vehicle</span>
                                <svg className={`w-5 h-5 transition-transform ${showAddCarForm ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             </button>
-                            {showAddCarForm && (
-                               <div className="p-4 border-t border-gray-100">
-                                  <AddCarForm onAddCar={handleAddCar} />
-                               </div>
-                            )}
+                            {showAddCarForm && (<div className="p-4 border-t border-gray-100"><AddCarForm onAddCar={handleAddCar} /></div>)}
                          </div>
-
-                         {/* Car Grid for Owners */}
                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {ownerCars.length > 0 ? (
-                                ownerCars.map((car, index) => (
-                                  <CarCard
-                                      key={car.id}
-                                      car={car}
-                                      viewMode={'owner'}
-                                      bookedCount={getBookedCount(car.id)}
-                                      onToggleStatus={handleToggleCarStatus}
-                                      onDelete={handleDeleteCar}
-                                      onBook={() => {}}
-                                      onEdit={handleEditClick}
-                                      onViewGallery={() => {}}
-                                      index={index}
-                                  />
-                                ))
-                            ) : (
-                                <div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200">
-                                   <p>{ownerSearchTerm ? 'No cars found matching your search.' : 'Your fleet is empty. Add a car to get started.'}</p>
-                                </div>
-                            )}
+                            {ownerCars.length > 0 ? (ownerCars.map((car, index) => (<CarCard key={car.id} car={car} viewMode={'owner'} bookedCount={getBookedCount(car.id)} onToggleStatus={handleToggleCarStatus} onDelete={handleDeleteCar} onBook={() => {}} onEdit={handleEditClick} onViewGallery={() => {}} index={index} />))) : (<div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200"><p>{ownerSearchTerm ? 'No cars found matching your search.' : 'Your fleet is empty. Add a car to get started.'}</p></div>)}
                          </div>
                       </div>
                    )}
 
-                   {/* --- BOOKINGS TAB --- */}
-                   {ownerTab === 'bookings' && (
-                      <OwnerBookings 
-                          bookings={ownerBookings} 
-                          onApprove={handleApproveBooking} 
-                          onReject={handleRejectBooking} 
-                      />
-                   )}
-
-                   {/* --- USERS TAB --- */}
-                   {ownerTab === 'users' && (
-                      <OwnerUsersList users={ownerUsers} />
-                   )}
-
-                   {/* --- SETTINGS TAB --- */}
-                   {ownerTab === 'settings' && (
-                      <OwnerSettings 
-                          currentQrCode={qrCode}
-                          heroSlides={heroSlides}
-                          stats={{
-                            totalCars: cars.length,
-                            totalBookings: bookings.length,
-                            totalUsers: usersList.length
-                          }}
-                          onSave={handleSaveQr} 
-                          onSaveSlides={handleSaveSlides} 
-                      />
-                   )}
+                   {ownerTab === 'bookings' && (<OwnerBookings bookings={ownerBookings} onApprove={handleApproveBooking} onReject={handleRejectBooking} />)}
+                   {ownerTab === 'users' && (<OwnerUsersList users={ownerUsers} />)}
+                   {ownerTab === 'settings' && (<OwnerSettings currentQrCode={qrCode} heroSlides={heroSlides} stats={{totalCars: cars.length, totalBookings: bookings.length, totalUsers: usersList.length}} onSave={handleSaveQr} onSaveSlides={handleSaveSlides} />)}
                 </div>
              )}
            </main>
         } />
       </Routes>
       
-      <AuthModal 
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onAuthSuccess={handleAuthSuccess}
-      />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onAuthSuccess={handleAuthSuccess} />
+      <BookingModal isOpen={isBookingModalOpen} car={selectedCar} onClose={() => setIsBookingModalOpen(false)} onConfirm={handleBooking} userProfile={user ? { name: user.name || '', phone: '' } : null} existingBookings={publicBookings.map(b => ({ carId: b.car_id, startDate: b.start_date, endDate: b.end_date, status: 'confirmed' } as any))} prefillDates={{ start: searchCriteria.start, end: searchCriteria.end }} prefillLocation={searchCriteria.location} paymentQrCode={qrCode} />
+      <EditCarModal isOpen={isEditModalOpen} car={carToEdit} onClose={() => setIsEditModalOpen(false)} onSave={handleUpdateCar} />
+      <UserOnboardingModal isOpen={isOnboardingOpen} onComplete={handleOnboardingComplete} />
 
-      <BookingModal 
-        isOpen={isBookingModalOpen}
-        car={selectedCar}
-        onClose={() => setIsBookingModalOpen(false)}
-        onConfirm={handleBooking}
-        userProfile={user ? { name: user.name || '', phone: '' } : null}
-        // Pass existing bookings to modal so it can double check conflicts inside the modal UI if needed
-        existingBookings={publicBookings.map(b => ({ carId: b.car_id, startDate: b.start_date, endDate: b.end_date, status: 'confirmed' } as any))} 
-        prefillDates={{ start: searchCriteria.start, end: searchCriteria.end }} // Pass search dates
-        prefillLocation={searchCriteria.location}
-        paymentQrCode={qrCode}
-      />
-
-      <EditCarModal 
-        isOpen={isEditModalOpen}
-        car={carToEdit}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleUpdateCar}
-      />
-
-      {/* Sticky WhatsApp Button */}
-      <a 
-         href={WHATSAPP_LINK}
-         target="_blank" 
-         rel="noopener noreferrer"
-         className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform duration-300 flex items-center justify-center group"
-         style={{ boxShadow: '0 0 20px rgba(37, 211, 102, 0.6)' }}
-      >
+      <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform duration-300 flex items-center justify-center group" style={{ boxShadow: '0 0 20px rgba(37, 211, 102, 0.6)' }}>
           <div className="absolute inset-0 rounded-full border-2 border-[#25D366] animate-ping opacity-75"></div>
-          <svg className="w-8 h-8 relative z-10" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+          <svg className="w-8 h-8 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
       </a>
-
-      <footer className="bg-black text-white mt-auto py-12">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            
-            {/* Brand */}
-            <div className="space-y-4">
-               <div className="flex flex-col leading-none select-none">
-                  <span className="text-3xl font-black text-red-600 tracking-tighter transform -skew-x-6">NCR</span>
-                  <span className="text-3xl font-black text-white tracking-tighter transform -skew-x-6 -mt-2">DRIVE</span>
-              </div>
-              <p className="text-gray-400 text-sm max-w-xs">
-                Delhi NCR's premium self-drive car rental service. Drive with freedom, drive with luxury.
-              </p>
-              <div className="flex gap-4 pt-2">
-                 {/* Instagram */}
-                 <a href="https://www.instagram.com/selfdrive.delhi?igsh=MWRhNTYwd3YyMnpjZA==" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-colors">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                 </a>
-              </div>
-            </div>
-
-            {/* Contact Details */}
-            <div className="space-y-4">
-              <h4 className="font-bold text-lg text-white uppercase italic">Contact Us</h4>
-              <ul className="space-y-3">
-                <li className="flex items-center gap-3 text-gray-400">
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                  </div>
-                  <span>+91 98703 75798</span>
-                </li>
-                <li className="flex items-center gap-3 text-gray-400">
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                  </div>
-                  <span>ncrdrivecar@gmail.com</span>
-                </li>
-                <li className="flex items-center gap-3 text-gray-400">
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  </div>
-                  <span>Delhi NCR (Serving Noida, Delhi, Gurgaon)</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">
-             &copy; {new Date().getFullYear()} NCR Drive Rental Services. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <footer className="bg-black text-white mt-auto py-12"><div className="max-w-7xl mx-auto px-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8"><div className="space-y-4"><div className="flex flex-col leading-none select-none"><span className="text-3xl font-black text-red-600 tracking-tighter transform -skew-x-6">NCR</span><span className="text-3xl font-black text-white tracking-tighter transform -skew-x-6 -mt-2">DRIVE</span></div><p className="text-gray-400 text-sm max-w-xs">Delhi NCR's premium self-drive car rental service. Drive with freedom, drive with luxury.</p><div className="flex gap-4 pt-2"><a href="https://www.instagram.com/selfdrive.delhi?igsh=MWRhNTYwd3YyMnpjZA==" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-colors"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a></div></div><div className="space-y-4"><h4 className="font-bold text-lg text-white uppercase italic">Contact Us</h4><ul className="space-y-3"><li className="flex items-center gap-3 text-gray-400"><div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg></div><span>+91 98703 75798</span></li><li className="flex items-center gap-3 text-gray-400"><div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div><span>ncrdrivecar@gmail.com</span></li><li className="flex items-center gap-3 text-gray-400"><div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div><span>Delhi NCR (Serving Noida, Delhi, Gurgaon)</span></li></ul></div></div><div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-600">&copy; {new Date().getFullYear()} NCR Drive Rental Services. All rights reserved.</div></div></footer>
     </div>
   );
 };

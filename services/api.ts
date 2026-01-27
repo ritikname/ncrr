@@ -52,6 +52,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }).then(handleResponse),
+
+    onboard: (data: {name: string, phone: string}) => fetch(`${API_URL}/auth/onboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(handleResponse),
     
     logout: () => fetch(`${API_URL}/auth/logout`, { method: 'POST' }).then(handleResponse),
     
@@ -98,12 +104,11 @@ export const api = {
       }));
     },
     
-    // Updated to accept raw data object instead of FormData
-    add: async (carData: any) => {
+    // Updated to send FormData
+    add: async (formData: FormData) => {
       return fetch(`${API_URL}/cars`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(carData), 
+        body: formData, 
       }).then(handleResponse);
     },
 
@@ -125,10 +130,9 @@ export const api = {
   },
   
   bookings: {
-    create: (data: any) => fetch(`${API_URL}/bookings`, {
+    create: (formData: FormData) => fetch(`${API_URL}/bookings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: formData
     }).then(handleResponse),
     
     getMyBookings: async (): Promise<Booking[]> => {
@@ -146,18 +150,15 @@ export const api = {
         advanceAmount: b.advance_amount,
         transactionId: b.transaction_id,
         isApproved: b.is_approved === 1,
-        // Map deprecated userLocation to db location for backward compat, but key data is in location
         userLocation: b.location, 
-        location: b.location, // Explicitly map location
-        userGps: b.user_gps, // Map new user_gps column
+        location: b.location,
+        userGps: b.user_gps,
         
         aadharFront: b.aadhar_front,
         aadharBack: b.aadhar_back,
         licensePhoto: b.license_photo,
-        // Map new security fields
         securityDepositType: b.security_deposit_type,
         securityDepositTransactionId: b.security_deposit_transaction_id,
-        // Map new promo fields
         promoCode: b.promo_code,
         discountAmount: b.discount_amount
       }));
