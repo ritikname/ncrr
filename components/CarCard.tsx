@@ -48,7 +48,12 @@ const CarCard: React.FC<CarCardProps> = ({ car, viewMode, bookedCount, onToggleS
           className="w-32 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-xl cursor-pointer overflow-hidden"
           onClick={() => onViewGallery(car)}
         >
-             <img src={car.imageBase64} className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500" alt={car.name} />
+             <img 
+               src={car.imageBase64} 
+               className="w-full h-full object-contain transform hover:scale-110 transition-transform duration-500" 
+               alt={car.name} 
+               loading="lazy" 
+             />
         </div>
 
         {/* Right Column: Specs & Actions */}

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import CarCard from './components/CarCard';
@@ -16,16 +16,25 @@ import AddCarForm from './components/AddCarForm';
 import Toast from './components/Toast';
 import WhyChooseUs from './components/WhyChooseUs';
 import FAQ from './components/FAQ';
-import CustomerBookings from './components/CustomerBookings';
 import UserOnboardingModal from './components/UserOnboardingModal'; 
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
 import { Car, ViewMode, Booking, HeroSlide, UserProfile } from './types';
 import { api } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { STORAGE_KEYS } from './constants';
+
+// Lazy Load Pages for better performance
+const Login = React.lazy(() => import('./pages/Login'));
+const Signup = React.lazy(() => import('./pages/Signup'));
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
+const CustomerBookings = React.lazy(() => import('./components/CustomerBookings'));
+
+// Simple Loading Spinner for Route Transitions
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
+  </div>
+);
 
 type OwnerTab = 'fleet' | 'bookings' | 'users' | 'leads' | 'settings';
 
@@ -72,14 +81,16 @@ export const App: React.FC = () => {
 
   const fetchData = async () => {
       try {
-        const carsData = await api.cars.getAll();
+        // Parallel fetching for speed
+        const [carsData, settings, avail] = await Promise.all([
+            api.cars.getAll(),
+            api.settings.get(),
+            api.bookings.getAvailability()
+        ]);
+
         setCars(carsData);
-        
-        const settings = await api.settings.get();
         if (settings.paymentQr) setQrCode(settings.paymentQr);
         if (settings.heroSlides) setHeroSlides(settings.heroSlides);
-
-        const avail = await api.bookings.getAvailability();
         setPublicBookings(avail);
 
         if (user) {
@@ -103,12 +114,12 @@ export const App: React.FC = () => {
         if (!user) {
             const hasOnboarded = localStorage.getItem('ncr_onboarded');
             if (!hasOnboarded) {
-                // Short delay for visual effect after loader
                 setTimeout(() => setIsOnboardingOpen(true), 2500);
             }
         }
+        // Load data and immediately set ready state (removed artificial delay)
         fetchData().finally(() => {
-           setTimeout(() => setLoadingPhase('ready'), 2000);
+           setLoadingPhase('ready');
         });
     }
   }, [user, authLoading]);
@@ -347,122 +358,124 @@ export const App: React.FC = () => {
       <Header viewMode={viewMode} onToggleView={setViewMode} />
       <div className="h-16"></div>
 
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        
-        <Route path="/my-bookings" element={
-            <div className="flex-grow pt-8">
-                <CustomerBookings bookings={bookings} />
-            </div>
-        } />
-        
-        <Route path="/" element={
-           <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-             {viewMode === 'customer' || !user || user.role !== 'owner' ? (
-                <div className="animate-fade-in space-y-8">
-                  <Hero slides={heroSlides} onSearch={handleSearch} />
-                  {hasSearched ? (
-                     <div id="fleet-section">
-                        <CarFilters filters={filters} onFilterChange={handleFilterChange} resultCount={filteredCars.length} />
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
-                           {filteredCars.length > 0 ? (
-                              filteredCars.map((car, index) => (
-                                 <CarCard
-                                    key={car.id}
-                                    car={car}
-                                    viewMode={'customer'}
-                                    bookedCount={getBookedCount(car.id)} 
-                                    onToggleStatus={() => {}}
-                                    onDelete={() => {}}
-                                    onBook={handleBookClick}
-                                    onEdit={() => {}}
-                                    onViewGallery={() => {}}
-                                    index={index}
-                                 />
-                              ))
-                           ) : (
-                              <div className="col-span-full text-center py-20 text-gray-500 bg-white rounded-3xl border border-gray-100">
-                                 <div className="text-4xl mb-4">😔</div>
-                                 <p className="text-lg font-bold">No cars available for these dates/filters.</p>
-                                 <p className="text-sm">Try changing your dates or filters.</p>
-                              </div>
-                           )}
-                        </div>
-                     </div>
-                  ) : (
-                     <div className="text-center py-20 bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-100 shadow-sm">
-                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">📅</div>
-                        <h3 className="text-2xl font-black text-gray-900 mb-2">Ready to Drive?</h3>
-                        <p className="text-gray-500 max-w-md mx-auto">Please select your <strong>Pick-up Location</strong> and <strong>Travel Dates</strong> above to view available cars.</p>
-                     </div>
-                  )}
-                  <WhyChooseUs />
-                  <FAQ />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            <Route path="/my-bookings" element={
+                <div className="flex-grow pt-8">
+                    <CustomerBookings bookings={bookings} />
                 </div>
-             ) : (
-                <div className="animate-fade-in space-y-8">
-                   <div className="bg-black text-white p-6 rounded-3xl text-center flex flex-col items-center justify-center relative">
-                      <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
-                      <p className="opacity-70">Manage your fleet, users, and bookings.</p>
-                      <button onClick={handleRefresh} className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all" title="Refresh Data">
-                         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                      </button>
-                   </div>
-                   
-                   <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40 overflow-x-auto">
-                      {[{ id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, { id: 'bookings', label: 'Bookings', icon: '📅' }, { id: 'users', label: 'Registered', icon: '👤' }, { id: 'leads', label: 'New Users', icon: '🌟' }, { id: 'settings', label: 'Settings', icon: '⚙️' }].map((tab) => (
-                         <button key={tab.id} onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${ownerTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
-                            <span className="text-lg">{tab.icon}</span>
-                            <span className="hidden sm:inline">{tab.label}</span>
-                         </button>
-                      ))}
-                   </div>
-                   
-                   {(ownerTab === 'fleet' || ownerTab === 'bookings' || ownerTab === 'users' || ownerTab === 'leads') && (
-                      <div className="relative">
-                         <input type="text" placeholder={ownerTab === 'fleet' ? "Search cars..." : ownerTab === 'bookings' ? "Search bookings..." : "Search users..."} value={ownerSearchTerm} onChange={(e) => setOwnerSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm" />
-                         <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                      </div>
-                   )}
-
-                   {ownerTab === 'fleet' && (
-                      <div className="space-y-6 animate-fade-in">
-                         <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
-                            <button onClick={() => setShowAddCarForm(!showAddCarForm)} className="w-full p-4 flex items-center justify-between text-left font-bold text-gray-700 hover:bg-gray-50 transition-colors">
-                               <span className="flex items-center gap-2"><span className="bg-red-100 text-red-600 w-8 h-8 rounded-full flex items-center justify-center text-lg">+</span>Add New Vehicle</span>
-                               <svg className={`w-5 h-5 transition-transform ${showAddCarForm ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                            </button>
-                            {showAddCarForm && (<div className="p-4 border-t border-gray-100"><AddCarForm onAddCar={handleAddCar} /></div>)}
-                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {ownerCars.length > 0 ? (ownerCars.map((car, index) => (<CarCard key={car.id} car={car} viewMode={'owner'} bookedCount={getBookedCount(car.id)} onToggleStatus={handleToggleCarStatus} onDelete={handleDeleteCar} onBook={() => {}} onEdit={handleEditClick} onViewGallery={() => {}} index={index} />))) : (<div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200"><p>{ownerSearchTerm ? 'No cars found matching your search.' : 'Your fleet is empty. Add a car to get started.'}</p></div>)}
-                         </div>
-                      </div>
-                   )}
-
-                   {ownerTab === 'bookings' && (<OwnerBookings bookings={ownerBookings} onApprove={handleApproveBooking} onReject={handleRejectBooking} />)}
-                   {ownerTab === 'users' && (<OwnerUsersList users={ownerUsers} />)}
-                   {ownerTab === 'leads' && (
-                      <div className="space-y-4 animate-fade-in">
-                         <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200 text-sm font-medium flex items-center gap-3">
-                            <span className="text-xl">🌟</span>
-                            <div>
-                               <p className="font-bold">New User Leads</p>
-                               <p className="text-xs opacity-80">These users filled the onboarding form but haven't created a full account yet.</p>
+            } />
+            
+            <Route path="/" element={
+            <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+                {viewMode === 'customer' || !user || user.role !== 'owner' ? (
+                    <div className="animate-fade-in space-y-8">
+                    <Hero slides={heroSlides} onSearch={handleSearch} />
+                    {hasSearched ? (
+                        <div id="fleet-section">
+                            <CarFilters filters={filters} onFilterChange={handleFilterChange} resultCount={filteredCars.length} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
+                            {filteredCars.length > 0 ? (
+                                filteredCars.map((car, index) => (
+                                    <CarCard
+                                        key={car.id}
+                                        car={car}
+                                        viewMode={'customer'}
+                                        bookedCount={getBookedCount(car.id)} 
+                                        onToggleStatus={() => {}}
+                                        onDelete={() => {}}
+                                        onBook={handleBookClick}
+                                        onEdit={() => {}}
+                                        onViewGallery={() => {}}
+                                        index={index}
+                                    />
+                                ))
+                            ) : (
+                                <div className="col-span-full text-center py-20 text-gray-500 bg-white rounded-3xl border border-gray-100">
+                                    <div className="text-4xl mb-4">😔</div>
+                                    <p className="text-lg font-bold">No cars available for these dates/filters.</p>
+                                    <p className="text-sm">Try changing your dates or filters.</p>
+                                </div>
+                            )}
                             </div>
-                         </div>
-                         <OwnerUsersList users={ownerUsers} />
-                      </div>
-                   )}
-                   {ownerTab === 'settings' && (<OwnerSettings currentQrCode={qrCode} heroSlides={heroSlides} stats={{totalCars: cars.length, totalBookings: bookings.length, totalUsers: usersList.length}} onSave={handleSaveQr} onSaveSlides={handleSaveSlides} />)}
-                </div>
-             )}
-           </main>
-        } />
-      </Routes>
+                        </div>
+                    ) : (
+                        <div className="text-center py-20 bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-100 shadow-sm">
+                            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">📅</div>
+                            <h3 className="text-2xl font-black text-gray-900 mb-2">Ready to Drive?</h3>
+                            <p className="text-gray-500 max-w-md mx-auto">Please select your <strong>Pick-up Location</strong> and <strong>Travel Dates</strong> above to view available cars.</p>
+                        </div>
+                    )}
+                    <WhyChooseUs />
+                    <FAQ />
+                    </div>
+                ) : (
+                    <div className="animate-fade-in space-y-8">
+                    <div className="bg-black text-white p-6 rounded-3xl text-center flex flex-col items-center justify-center relative">
+                        <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
+                        <p className="opacity-70">Manage your fleet, users, and bookings.</p>
+                        <button onClick={handleRefresh} className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all" title="Refresh Data">
+                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40 overflow-x-auto">
+                        {[{ id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, { id: 'bookings', label: 'Bookings', icon: '📅' }, { id: 'users', label: 'Registered', icon: '👤' }, { id: 'leads', label: 'New Users', icon: '🌟' }, { id: 'settings', label: 'Settings', icon: '⚙️' }].map((tab) => (
+                            <button key={tab.id} onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${ownerTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                                <span className="text-lg">{tab.icon}</span>
+                                <span className="hidden sm:inline">{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                    
+                    {(ownerTab === 'fleet' || ownerTab === 'bookings' || ownerTab === 'users' || ownerTab === 'leads') && (
+                        <div className="relative">
+                            <input type="text" placeholder={ownerTab === 'fleet' ? "Search cars..." : ownerTab === 'bookings' ? "Search bookings..." : "Search users..."} value={ownerSearchTerm} onChange={(e) => setOwnerSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-600 outline-none shadow-sm" />
+                            <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        </div>
+                    )}
+
+                    {ownerTab === 'fleet' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                                <button onClick={() => setShowAddCarForm(!showAddCarForm)} className="w-full p-4 flex items-center justify-between text-left font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                                <span className="flex items-center gap-2"><span className="bg-red-100 text-red-600 w-8 h-8 rounded-full flex items-center justify-center text-lg">+</span>Add New Vehicle</span>
+                                <svg className={`w-5 h-5 transition-transform ${showAddCarForm ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                                {showAddCarForm && (<div className="p-4 border-t border-gray-100"><AddCarForm onAddCar={handleAddCar} /></div>)}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {ownerCars.length > 0 ? (ownerCars.map((car, index) => (<CarCard key={car.id} car={car} viewMode={'owner'} bookedCount={getBookedCount(car.id)} onToggleStatus={handleToggleCarStatus} onDelete={handleDeleteCar} onBook={() => {}} onEdit={handleEditClick} onViewGallery={() => {}} index={index} />))) : (<div className="col-span-full py-24 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200"><p>{ownerSearchTerm ? 'No cars found matching your search.' : 'Your fleet is empty. Add a car to get started.'}</p></div>)}
+                            </div>
+                        </div>
+                    )}
+
+                    {ownerTab === 'bookings' && (<OwnerBookings bookings={ownerBookings} onApprove={handleApproveBooking} onReject={handleRejectBooking} />)}
+                    {ownerTab === 'users' && (<OwnerUsersList users={ownerUsers} />)}
+                    {ownerTab === 'leads' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200 text-sm font-medium flex items-center gap-3">
+                                <span className="text-xl">🌟</span>
+                                <div>
+                                <p className="font-bold">New User Leads</p>
+                                <p className="text-xs opacity-80">These users filled the onboarding form but haven't created a full account yet.</p>
+                                </div>
+                            </div>
+                            <OwnerUsersList users={ownerUsers} />
+                        </div>
+                    )}
+                    {ownerTab === 'settings' && (<OwnerSettings currentQrCode={qrCode} heroSlides={heroSlides} stats={{totalCars: cars.length, totalBookings: bookings.length, totalUsers: usersList.length}} onSave={handleSaveQr} onSaveSlides={handleSaveSlides} />)}
+                    </div>
+                )}
+            </main>
+            } />
+        </Routes>
+      </Suspense>
       
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onAuthSuccess={handleAuthSuccess} />
       <BookingModal isOpen={isBookingModalOpen} car={selectedCar} onClose={() => setIsBookingModalOpen(false)} onConfirm={handleBooking} userProfile={user ? { name: user.name || '', phone: '' } : null} existingBookings={publicBookings.map(b => ({ carId: b.car_id, startDate: b.start_date, endDate: b.end_date, status: 'confirmed' } as any))} prefillDates={{ start: searchCriteria.start, end: searchCriteria.end }} prefillLocation={searchCriteria.location} paymentQrCode={qrCode} />
@@ -485,7 +498,7 @@ export const App: React.FC = () => {
               <p className="text-gray-400 text-sm max-w-xs">Delhi NCR's premium self-drive car rental service. Drive with freedom, drive with luxury.</p>
               <div className="flex gap-4 pt-2">
                 <a href="https://www.instagram.com/selfdrive.delhi?igsh=MWRhNTYwd3YyMnpjZA==" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-colors">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
                 </a>
               </div>
             </div>
@@ -500,7 +513,7 @@ export const App: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-3 text-gray-400">
                   <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                   </div>
                   <span>ncrdrivecar@gmail.com</span>
                 </li>
