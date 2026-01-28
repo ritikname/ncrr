@@ -81,7 +81,7 @@ async function sendTelegramNotification(token: string, chatId: string, message: 
   }
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
-    await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -89,6 +89,10 @@ async function sendTelegramNotification(token: string, chatId: string, message: 
         text: message
       })
     });
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Telegram API Error:', errorText);
+    }
   } catch (e) {
     console.error('Telegram Notification Failed:', e);
   }
@@ -312,20 +316,24 @@ api.post('/auth/onboard', async (c) => {
     // Check if exists
     const exists = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(dummyEmail).first();
     
+    let teleMsg = '';
+
     if (!exists) {
        await c.env.DB.prepare(
          'INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)'
        ).bind(name, dummyEmail, phone, dummyHash).run();
        
-       // Send Telegram Notification for New Lead
-       const msg = `🌟 *New Lead Received*\n\nName: ${name}\nPhone: ${phone}`;
-       // Use LEAD Bot Token
-       c.executionCtx.waitUntil(sendTelegramNotification(c.env.TELEGRAM_LEAD_BOT_TOKEN, c.env.TELEGRAM_OWNER_CHAT_ID, msg));
-
+       teleMsg = `🌟 NEW LEAD RECEIVED\n\nName: ${name}\nPhone: ${phone}`;
     } else {
-       // Update name if they came back
-       await c.env.DB.prepare('UPDATE users SET name = ?, phone = ? WHERE email = ?').bind(name, phone, dummyEmail).run();
+       // Update name and timestamp to bring to top of list
+       await c.env.DB.prepare('UPDATE users SET name = ?, phone = ?, created_at = unixepoch() WHERE email = ?').bind(name, phone, dummyEmail).run();
+       
+       teleMsg = `♻️ LEAD RETURNED\n\nName: ${name}\nPhone: ${phone}`;
     }
+
+    // Send Telegram Notification for New/Returning Lead
+    // Use LEAD Bot Token
+    c.executionCtx.waitUntil(sendTelegramNotification(c.env.TELEGRAM_LEAD_BOT_TOKEN, c.env.TELEGRAM_OWNER_CHAT_ID, teleMsg));
 
     return c.json({ success: true });
   } catch (e: any) {
@@ -358,7 +366,7 @@ api.post('/auth/forgot-password', async (c) => {
   const resetLink = `${origin}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
   c.executionCtx.waitUntil(sendEmailViaScript(c.env, { to_email: email, subject: "Action Required: Password Reset", customer_name: user.name, ref_id: "RESET", car_name: "Password Reset Request", start_date: "Reset Link:", end_date: "Below", pickup_location: resetLink, total_cost: "0", advance_amount: "0", owner_phone: "System" }));
   
-  const adminMsg = `🔐 *Password Reset Requested*\n\nUser: ${email}\nLink: ${resetLink}`;
+  const adminMsg = `🔐 PASSWORD RESET REQUEST\n\nUser: ${email}\nLink: ${resetLink}`;
   // Use BOOKING Bot Token (Admin)
   c.executionCtx.waitUntil(sendTelegramNotification(c.env.TELEGRAM_BOOKING_BOT_TOKEN, c.env.TELEGRAM_OWNER_CHAT_ID, adminMsg));
   
@@ -381,6 +389,7 @@ api.post('/auth/reset-password', async (c) => {
 api.get('/users', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
+    // Explicitly order by created_at DESC to show newest/most recently active first
     const { results } = await c.env.DB.prepare('SELECT id, name, email, phone, created_at as joinedAt FROM users ORDER BY created_at DESC').all();
     return c.json(results || []);
   } catch (e: any) {
@@ -574,8 +583,8 @@ api.post('/bookings', authMiddleware, async (c) => {
       securityDepositTransactionId || null, signature || null, promoCode || null, discountAmount || 0
     ).run();
     
-    let teleMsg = `🚗 New Booking Received!\n\nCustomer: ${customerName} (${customerPhone})\nCar: ${carName}\nDates: ${startDate} to ${endDate}\nTotal: ₹${totalCost}`;
-    if (promoCode) teleMsg += `\nPromo Applied: ${promoCode} (-₹${discountAmount})`;
+    let teleMsg = `🚗 NEW BOOKING RECEIVED\n\nCustomer: ${customerName} (${customerPhone})\nCar: ${carName}\nDates: ${startDate} to ${endDate}\nTotal: ₹${totalCost}`;
+    if (promoCode) teleMsg += `\nPromo: ${promoCode} (-₹${discountAmount})`;
     teleMsg += `\nDeposit: ${securityDepositType}`;
     
     // Use BOOKING Bot Token
@@ -638,7 +647,6 @@ api.patch('/bookings/:id', authMiddleware, ownerMiddleware, async (c) => {
   return c.json({ success: true });
 });
 
-// ... (Promo Codes & Settings Routes are unchanged but included in logic) ...
 api.get('/promos', authMiddleware, ownerMiddleware, async (c) => {
   if (!c.env.DB) return c.json([]);
   try {
