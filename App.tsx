@@ -195,7 +195,8 @@ export const App: React.FC = () => {
     const q = ownerSearchTerm.toLowerCase().trim();
     
     // Helper to identify guests based on the dummy email pattern from onboarding
-    const isGuest = (u: any) => u.email && u.email.startsWith('guest_');
+    // Updated to be case-insensitive to match backend forced lowercase
+    const isGuest = (u: any) => u.email && u.email.toLowerCase().startsWith('guest_');
 
     // 1. First filter by Tab Category (Logic independent of search)
     let filteredUsers = usersList;
@@ -514,7 +515,7 @@ export const App: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-3 text-gray-400">
                   <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-red-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                   </div>
                   <span>ncrdrivecar@gmail.com</span>
                 </li>

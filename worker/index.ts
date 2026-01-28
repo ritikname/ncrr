@@ -305,7 +305,7 @@ api.post('/auth/onboard', async (c) => {
     // Create a dummy email for the guest lead (required by schema)
     // Using phone number to ensure uniqueness
     const safePhone = phone.replace(/\D/g, '');
-    const dummyEmail = `guest_${safePhone}@ncrdrive.com`;
+    const dummyEmail = `guest_${safePhone}@ncrdrive.com`.toLowerCase(); // Forced lowercase
     // Dummy hash (they cannot login with password, only here for record)
     const dummyHash = await bcrypt.hash('guest_user_no_login_possible', 10);
 
