@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import CarCard from './components/CarCard';
 import Hero from './components/Hero';
@@ -79,9 +79,19 @@ export const App: React.FC = () => {
     localStorage.removeItem(STORAGE_KEYS.VIEW_MODE);
   }, []);
 
+  // Close modals on logout to prevent state inconsistency
+  useEffect(() => {
+    if (!user) {
+        setIsBookingModalOpen(false);
+        setIsEditModalOpen(false);
+        // Reset View Mode to customer if owner logs out
+        setViewMode('customer');
+    }
+  }, [user]);
+
   const fetchData = async () => {
       try {
-        // Parallel fetching for speed
+        // Parallel fetching for public data
         const [carsData, settings, avail] = await Promise.all([
             api.cars.getAll(),
             api.settings.get(),
@@ -93,6 +103,7 @@ export const App: React.FC = () => {
         if (settings.heroSlides) setHeroSlides(settings.heroSlides);
         setPublicBookings(avail);
 
+        // Private Data Logic
         if (user) {
           const bookingsData = await api.bookings.getMyBookings();
           setBookings(bookingsData);
@@ -100,7 +111,14 @@ export const App: React.FC = () => {
           if (user.role === 'owner') {
              const uList = await api.users.getAll();
              setUsersList(uList);
+          } else {
+             // Ensure owner data is cleared if role changes or is not owner
+             setUsersList([]);
           }
+        } else {
+          // CRITICAL FIX: Clear private data if logged out
+          setBookings([]);
+          setUsersList([]);
         }
       } catch (err) {
         console.error("Failed to load data", err);
@@ -368,9 +386,13 @@ export const App: React.FC = () => {
             <Route path="/reset-password" element={<ResetPassword />} />
             
             <Route path="/my-bookings" element={
-                <div className="flex-grow pt-8">
-                    <CustomerBookings bookings={bookings} />
-                </div>
+                user ? (
+                    <div className="flex-grow pt-8">
+                        <CustomerBookings bookings={bookings} />
+                    </div>
+                ) : (
+                    <Navigate to="/login" replace />
+                )
             } />
             
             <Route path="/" element={
