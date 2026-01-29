@@ -13,11 +13,9 @@ interface AnalyticsData {
     totalBookings: number;
     avgBookingValue: number;
   };
-  charts: {
-    daily: { labels: string[], values: number[] };
-    weekly: { labels: string[], values: number[] };
-    monthly: { labels: string[], values: number[] };
-    yearly: { labels: string[], values: number[] };
+  chart: {
+    labels: string[];
+    values: number[];
   };
   insights: {
     weeklySales: { labels: string[], revenue: number[], quantity: number[] };
@@ -30,15 +28,30 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  
+  // Filter States
+  const [range, setRange] = useState<'7d' | '8w' | 'monthly' | 'yearly' | 'custom'>('monthly');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [range]); // Fetch when range changes. Custom date fetch handled by Apply button.
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const res = await api.analytics.getSalesReport();
+      const params: any = { range };
+      if (range === 'custom') {
+          if (!customStart || !customEnd) {
+              setLoading(false);
+              return; // Don't fetch invalid custom range
+          }
+          params.startDate = customStart;
+          params.endDate = customEnd;
+      }
+      
+      const res = await api.analytics.getSalesReport(params);
       setData(res);
     } catch (e: any) {
       console.error(e);
@@ -48,7 +61,16 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
     }
   };
 
-  if (loading) {
+  const handleCustomApply = () => {
+      if (customStart && customEnd) {
+          setRange('custom');
+          fetchData(); // Trigger fetch manually for custom apply
+      } else {
+          alert("Please select both start and end dates.");
+      }
+  };
+
+  if (loading && !data) {
       return (
           <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
@@ -60,14 +82,13 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
       return (
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
               <p className="text-gray-400 font-bold">{error || 'No data available'}</p>
-              <button onClick={fetchData} className="mt-4 text-red-600 font-bold hover:underline">Retry</button>
+              <button onClick={() => fetchData()} className="mt-4 text-red-600 font-bold hover:underline">Retry</button>
           </div>
       );
   }
 
-  const { stats, charts, insights } = data;
-  const currentChart = charts[viewMode];
-  const maxChartValue = Math.max(...currentChart.values, 100);
+  const { stats, chart, insights } = data;
+  const maxChartValue = Math.max(...chart.values, 100);
 
   // Safe defaults for insights if API returns partial data
   const topCars = insights?.topCars || [];
@@ -85,7 +106,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
                 <p className="text-gray-500 text-sm">Real-time financial performance and fleet metrics.</p>
             </div>
             <div className="flex items-center gap-2">
-                 <button onClick={fetchData} className="bg-white p-2 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-500 shadow-sm transition-colors" title="Refresh Data">
+                 <button onClick={() => fetchData()} className="bg-white p-2 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-500 shadow-sm transition-colors" title="Refresh Data">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                  </button>
                  <div className="bg-green-50 px-3 py-1.5 rounded-xl border border-green-100 text-[10px] font-bold text-green-700 shadow-sm flex items-center gap-1">
@@ -95,7 +116,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
             </div>
         </div>
 
-        {/* Global KPI Cards */}
+        {/* Global KPI Cards (Lifetime) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-black text-white p-6 rounded-3xl shadow-xl relative overflow-hidden group">
                 <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 transition-transform group-hover:scale-150 duration-700"></div>
@@ -134,37 +155,64 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
 
         {/* ANALYSIS CHART SECTION */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">Revenue Trends</h3>
                     <p className="text-xs text-gray-500 font-medium mt-1">
                         Visualizing sales over time.
                     </p>
                 </div>
-                {/* View Switcher */}
-                <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
-                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((view) => (
-                        <button
-                            key={view}
-                            onClick={() => setViewMode(view)}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${
-                                viewMode === view 
-                                ? 'bg-white text-gray-900 shadow-sm' 
-                                : 'text-gray-500 hover:text-gray-700'
+                {/* Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Presets */}
+                    <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+                        {(['7d', '8w', 'monthly', 'yearly'] as const).map((r) => (
+                            <button
+                                key={r}
+                                onClick={() => { setRange(r); setCustomStart(''); setCustomEnd(''); }}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${
+                                    range === r 
+                                    ? 'bg-white text-gray-900 shadow-sm' 
+                                    : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                {r === '7d' ? '7 Days' : r === '8w' ? '8 Weeks' : r === 'monthly' ? 'Monthly' : 'Yearly'}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Custom Range */}
+                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-200">
+                        <input 
+                            type="date" 
+                            value={customStart} 
+                            onChange={(e) => { setCustomStart(e.target.value); setRange('custom'); }} 
+                            className="bg-transparent text-xs font-bold text-gray-700 w-24 outline-none px-1"
+                        />
+                        <span className="text-gray-400 text-xs">-</span>
+                        <input 
+                            type="date" 
+                            value={customEnd} 
+                            onChange={(e) => { setCustomEnd(e.target.value); setRange('custom'); }} 
+                            className="bg-transparent text-xs font-bold text-gray-700 w-24 outline-none px-1"
+                        />
+                        <button 
+                            onClick={handleCustomApply}
+                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                                range === 'custom' && customStart && customEnd ? 'bg-black text-white' : 'bg-gray-200 text-gray-400'
                             }`}
                         >
-                            {view === 'daily' ? 'Last 7 Days' : view === 'weekly' ? 'Last 8 Weeks' : view === 'monthly' ? 'Monthly' : 'Yearly'}
+                            Go
                         </button>
-                    ))}
+                    </div>
                 </div>
             </div>
 
             {/* Visual Chart */}
-            <div className="h-64 flex items-end justify-between gap-2 sm:gap-4 pb-2 relative border-b border-gray-100">
-                {currentChart.values.length > 0 && currentChart.values.some(v => v > 0) ? (
-                    currentChart.values.map((val, idx) => {
+            <div className={`h-64 flex items-end justify-between gap-2 sm:gap-4 pb-2 relative border-b border-gray-100 ${loading ? 'opacity-50' : ''}`}>
+                {chart.values.length > 0 && chart.values.some(v => v > 0) ? (
+                    chart.values.map((val, idx) => {
                         const heightPercent = maxChartValue > 0 ? (val / maxChartValue) * 100 : 0;
-                        const label = currentChart.labels[idx];
+                        const label = chart.labels[idx];
                         
                         return (
                             <div key={idx} className="flex-1 flex flex-col items-center group min-w-[30px] h-full justify-end relative">
@@ -188,7 +236,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
                     })
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs font-bold bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
-                        No sales data found for this period.
+                        {loading ? 'Loading...' : 'No sales data found for this period.'}
                     </div>
                 )}
             </div>
@@ -204,7 +252,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
                 <div className="flex items-center justify-between mb-6">
                     <div>
                        <h3 className="text-lg font-bold text-gray-900">Performance Leaders</h3>
-                       <p className="text-xs text-gray-500 font-medium mt-1">Top performing cars & categories (Last 30 Days)</p>
+                       <p className="text-xs text-gray-500 font-medium mt-1">Top performing cars & categories (Selected Period)</p>
                     </div>
                 </div>
 
@@ -268,8 +316,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
             {/* Right: Weekly Breakdown Chart/List */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full flex flex-col">
                 <div className="mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">This Week's Activity</h3>
-                    <p className="text-xs text-gray-500 font-medium mt-1">Car-wise revenue for the last 7 days</p>
+                    <h3 className="text-lg font-bold text-gray-900">Breakdown Activity</h3>
+                    <p className="text-xs text-gray-500 font-medium mt-1">Car-wise revenue for the selected period</p>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide max-h-[400px]">
@@ -304,7 +352,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
                             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-2">
                                 <span className="text-2xl">💤</span>
                             </div>
-                            <p className="text-sm font-bold">No sales yet this week.</p>
+                            <p className="text-sm font-bold">No sales for this period.</p>
                         </div>
                     )}
                 </div>

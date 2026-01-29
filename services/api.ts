@@ -36,7 +36,10 @@ export const api = {
     }).then(handleResponse)
   },
   analytics: {
-    getSalesReport: () => fetch(`${API_URL}/owner/sales-report`).then(handleResponse)
+    getSalesReport: (params?: { range?: string; startDate?: string; endDate?: string }) => {
+      const query = new URLSearchParams(params as any).toString();
+      return fetch(`${API_URL}/owner/sales-report?${query}`).then(handleResponse);
+    }
   },
   users: {
     getAll: () => fetch(`${API_URL}/users`).then(handleResponse)
