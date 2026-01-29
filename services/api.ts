@@ -138,34 +138,44 @@ export const api = {
     
     getMyBookings: async (): Promise<Booking[]> => {
       const bookings = await fetch(`${API_URL}/bookings`).then(handleResponse);
-      return bookings.map((b: any) => ({
-        ...b,
-        carName: b.car_name,
-        carImage: b.car_image,
-        userEmail: b.user_email,
-        customerName: b.customer_name,
-        customerPhone: b.customer_phone,
-        startDate: b.start_date,
-        endDate: b.end_date,
-        // STRICT NUMBER CASTING TO PREVENT 'NaN' or String Concat
-        totalCost: Number(b.total_cost || 0),
-        advanceAmount: Number(b.advance_amount || 0),
-        discountAmount: Number(b.discount_amount || 0),
-        transactionId: b.transaction_id,
-        isApproved: b.is_approved === 1,
-        userLocation: b.location, 
-        location: b.location,
-        userGps: b.user_gps,
-        
-        aadharFront: b.aadhar_front,
-        aadharBack: b.aadhar_back,
-        licensePhoto: b.license_photo,
-        securityDepositType: b.security_deposit_type,
-        securityDepositTransactionId: b.security_deposit_transaction_id,
-        promoCode: b.promo_code,
-        
-        createdAt: b.created_at || b.createdAt || Date.now() 
-      }));
+      return bookings.map((b: any) => {
+        // Safe Number Parsing
+        const parseCost = (val: any) => {
+           const num = Number(val);
+           return isNaN(num) ? 0 : num;
+        };
+
+        return {
+            ...b,
+            carName: b.car_name,
+            carImage: b.car_image,
+            userEmail: b.user_email,
+            customerName: b.customer_name,
+            customerPhone: b.customer_phone,
+            startDate: b.start_date,
+            endDate: b.end_date,
+            
+            // STRICT NUMBER CASTING
+            totalCost: parseCost(b.total_cost),
+            advanceAmount: parseCost(b.advance_amount),
+            discountAmount: parseCost(b.discount_amount),
+            
+            transactionId: b.transaction_id,
+            isApproved: b.is_approved === 1,
+            userLocation: b.location, 
+            location: b.location,
+            userGps: b.user_gps,
+            
+            aadharFront: b.aadhar_front,
+            aadharBack: b.aadhar_back,
+            licensePhoto: b.license_photo,
+            securityDepositType: b.security_deposit_type,
+            securityDepositTransactionId: b.security_deposit_transaction_id,
+            promoCode: b.promo_code,
+            
+            createdAt: b.created_at || b.createdAt || Date.now() 
+        };
+      });
     },
 
     getAvailability: () => fetch(`${API_URL}/public/availability`).then(handleResponse),

@@ -32,34 +32,37 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
   }, [viewMode]);
 
   // --- HELPER: ROBUST TIMESTAMP PARSER ---
-  // Handles Seconds (SQLite), Milliseconds (JS), ISO Strings (Postgres/Raw), and Date objects
+  // Returns a Date object
   const parseTimestamp = (ts: any) => {
       if (!ts) return new Date(); // Fallback to now
       if (ts instanceof Date) return ts;
       
       const num = Number(ts);
-      
-      // If valid number
       if (!isNaN(num)) {
           // If < 10 billion, it's seconds. Else milliseconds.
           if (num < 10000000000) return new Date(num * 1000);
           return new Date(num);
       }
-      
-      // If string (e.g. "2024-01-01")
       const d = new Date(ts);
       if (!isNaN(d.getTime())) return d;
-      
-      return new Date(); // Final fallback
+      return new Date(); 
   };
   
+  // Helper to normalize a date to Midnight (00:00:00) to avoid time mismatches
+  const toMidnight = (d: Date) => {
+      const copy = new Date(d);
+      copy.setHours(0, 0, 0, 0);
+      return copy;
+  };
+
   const getCreatedDate = (booking: Booking | any) => {
-      // Prioritize createdAt, fallback to created_at
       return parseTimestamp(booking.createdAt !== undefined ? booking.createdAt : booking.created_at);
   };
 
-  // --- HELPER: Consistent Key Generation (Local Time) ---
-  const getKeyAndLabel = (date: Date, type: 'day' | 'week' | 'month') => {
+  // --- HELPER: Key Generation ---
+  // Generates consistent keys like "2024-01-15" from any date object
+  const getKeyAndLabel = (dateInput: Date, type: 'day' | 'week' | 'month') => {
+      const date = toMidnight(dateInput);
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, '0');
       const d = String(date.getDate()).padStart(2, '0');
@@ -71,15 +74,19 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
           };
       } else if (type === 'week') {
           // Snap to Monday
-          const dayOfWeek = date.getDay();
+          const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
+          // Difference to subtract to get to Monday (1)
+          // If Sun(0), diff = -6. If Mon(1), diff = 0. If Tue(2), diff = 1.
           const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
           const weekStart = new Date(date);
           weekStart.setDate(diff);
+          
           const wy = weekStart.getFullYear();
           const wm = String(weekStart.getMonth() + 1).padStart(2, '0');
           const wd = String(weekStart.getDate()).padStart(2, '0');
+          
           return {
-              key: `${wy}-${wm}-${wd}`,
+              key: `${wy}-${wm}-${wd}`, // Key is always the Monday of that week
               label: weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
           };
       } else {
@@ -135,11 +142,11 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     let startDate = new Date();
     let endDate = new Date();
     
+    // End date is always end of today
     endDate.setHours(23,59,59,999);
     
     let groupBy: 'day' | 'week' | 'month' = 'month';
 
-    // IMPORTANT: Clone 'now' before modifying to avoid reference bugs
     if (viewMode === 'daily') {
         startDate = new Date(now);
         startDate.setDate(now.getDate() - 30);
@@ -186,10 +193,10 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     const chartMap = new Map<string, number>();
     const chartLabels: { label: string }[] = [];
 
+    // Use a fresh iterator to fill buckets from start to end
     let iter = new Date(startDate);
     let safetyCounter = 0;
     
-    // Initialize Buckets
     while (iter <= endDate && safetyCounter < 366) {
         const { key, label } = getKeyAndLabel(iter, groupBy);
         
@@ -198,13 +205,16 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
              chartLabels.push({ label });
         }
         
-        if (groupBy === 'day') iter.setDate(iter.getDate() + 1);
-        else if (groupBy === 'week') iter.setDate(iter.getDate() + 7);
-        else {
-            // Safe Month Increment
+        // Increment logic
+        if (groupBy === 'day') {
+            iter.setDate(iter.getDate() + 1);
+        } else if (groupBy === 'week') {
+            iter.setDate(iter.getDate() + 7);
+        } else {
+            // Month increment
             const currentMonth = iter.getMonth();
             iter.setMonth(currentMonth + 1);
-            // Handle edge case (e.g. Jan 31 -> Feb 28/29)
+            // Handle edge case (e.g. Jan 31 -> Feb 28)
             if (iter.getMonth() !== (currentMonth + 1) % 12) {
                 iter.setDate(0); 
             }
@@ -212,14 +222,18 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         safetyCounter++;
     }
 
-    // Fill Buckets
+    // Fill Buckets with Data
     filtered.forEach(b => {
         const d = getCreatedDate(b);
         const { key } = getKeyAndLabel(d, groupBy);
         
+        // If the bucket exists, add to it. 
+        // If it doesn't exist (edge case), we ignore it or could add it dynamically.
+        // Given we iterate start to end, it should exist if filtered correctly.
         if (chartMap.has(key)) {
             const val = chartMap.get(key) || 0;
-            chartMap.set(key, val + (Number(b.totalCost) || 0));
+            const cost = Number(b.totalCost) || 0;
+            chartMap.set(key, val + cost);
         }
     });
 
@@ -247,7 +261,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     return { chartData, topCars, periodRevenue };
   }, [bookings, viewMode, customStart, customEnd]);
 
-  const maxChartValue = Math.max(...analysisData.chartData.map(d => d.value), 100);
+  // Calculate Max Value for Chart Scaling
+  const maxChartValue = Math.max(...analysisData.chartData.map(d => d.value), 10); // Minimum scale of 10 to avoid div/0
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
@@ -382,9 +397,11 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                             return (
                                 <div key={idx} className="flex-1 flex flex-col items-center group min-w-[30px]">
                                     <div className="relative w-full bg-gray-50 rounded-t-sm flex items-end justify-center overflow-hidden hover:bg-gray-100 transition-colors h-full">
-                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none">
-                                            ₹{data.value.toLocaleString()}
-                                        </div>
+                                        {data.value > 0 && (
+                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none">
+                                                ₹{data.value.toLocaleString()}
+                                            </div>
+                                        )}
                                         <div 
                                             className={`w-full mx-0.5 rounded-t transition-all duration-700 ease-out relative ${data.value > 0 ? 'bg-red-600' : 'bg-transparent'}`}
                                             style={{ height: `${data.value > 0 ? Math.max(heightPercent, 2) : 0}%` }}
