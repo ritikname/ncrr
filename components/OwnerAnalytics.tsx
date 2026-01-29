@@ -75,6 +75,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     
     let startDate = new Date();
     let endDate = new Date();
+    
+    // Set End of Day for consistency
     endDate.setHours(23,59,59,999);
     startDate.setHours(0,0,0,0);
 
@@ -94,6 +96,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     } else if (viewMode === 'custom') {
         if (customStart && customEnd) {
             startDate = new Date(customStart);
+            startDate.setHours(0,0,0,0);
+            
             endDate = new Date(customEnd);
             endDate.setHours(23,59,59,999);
             
@@ -103,13 +107,13 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
             else if (diffDays <= 180) groupBy = 'week';
             else groupBy = 'month';
         } else {
-            // Should not happen due to useEffect, but fallback
+            // Fallback
             startDate.setDate(now.getDate() - 7);
             groupBy = 'day';
         }
     }
 
-    // Filter Bookings within Range
+    // Filter Bookings within Range (Strict Check)
     const filtered = validBookings.filter(b => {
         const d = new Date(b.createdAt);
         return d >= startDate && d <= endDate;
@@ -117,45 +121,65 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
     // --- Generate Chart Data ---
     const chartMap = new Map<string, number>();
-    const chartLabels: { label: string, date: Date }[] = [];
+    const chartLabels: { label: string }[] = [];
 
-    // Initialize Chart Buckets (Zero-filling)
+    // Helper: Clone date to avoid reference mutation issues
     let iter = new Date(startDate);
     
-    // Safety break to prevent infinite loops if dates are invalid
+    // Safety break to prevent infinite loops
     let safetyCounter = 0;
     
-    while (iter <= endDate && safetyCounter < 366) { // Max 1 year iteration safety
+    // 1. Initialize Buckets with 0
+    while (iter <= endDate && safetyCounter < 366) {
         let key = '';
         let label = '';
         
         if (groupBy === 'day') {
+            // Key: YYYY-MM-DD
             key = iter.toISOString().split('T')[0];
             label = iter.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+            
+            // Next Day
             iter.setDate(iter.getDate() + 1);
         } else if (groupBy === 'week') {
-            // Find week start
+            // Key: YYYY-MM-DD (Start of Week - Monday)
+            // Snap iter to the Monday of its current week
             const day = iter.getDay();
-            const diff = iter.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday start
-            const weekStart = new Date(iter.setDate(diff));
+            const diff = iter.getDate() - day + (day === 0 ? -6 : 1); 
+            const weekStart = new Date(iter);
+            weekStart.setDate(diff);
+            
             key = weekStart.toISOString().split('T')[0];
             label = weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+            
+            // Move iter to next week (ensuring we don't just increment the snapped date, but the iterator)
+            // Ideally, for iteration, we just jump 7 days from the *snapped* start
+            iter = new Date(weekStart);
             iter.setDate(iter.getDate() + 7);
         } else {
-            key = `${iter.getFullYear()}-${iter.getMonth()}`;
-            label = iter.toLocaleString('default', { month: 'short', year: '2-digit' });
+            // Key: YYYY-MM (e.g., 2023-09)
+            const y = iter.getFullYear();
+            const m = String(iter.getMonth() + 1).padStart(2, '0');
+            key = `${y}-${m}`;
+            label = iter.toLocaleDateString('default', { month: 'short', year: '2-digit' });
+            
+            // Move to next month (set date to 1 to avoid Feb 30th issues)
+            iter.setDate(1);
             iter.setMonth(iter.getMonth() + 1);
         }
         
-        chartMap.set(key, 0);
-        chartLabels.push({ label, date: new Date(key === `${iter.getFullYear()}-${iter.getMonth() - 1}` ? iter : key) }); // Approx date for key
+        if (!chartMap.has(key)) {
+             chartMap.set(key, 0);
+             chartLabels.push({ label });
+        }
         safetyCounter++;
     }
 
-    // Fill Chart Buckets
+    // 2. Fill Buckets with Data
     filtered.forEach(b => {
         const d = new Date(b.createdAt);
         let key = '';
+
         if (groupBy === 'day') {
             key = d.toISOString().split('T')[0];
         } else if (groupBy === 'week') {
@@ -165,7 +189,9 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
             weekStart.setDate(diff);
             key = weekStart.toISOString().split('T')[0];
         } else {
-            key = `${d.getFullYear()}-${d.getMonth()}`;
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            key = `${y}-${m}`;
         }
 
         if (chartMap.has(key)) {
@@ -294,8 +320,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
                 {/* Custom Date Inputs (Refined UI) */}
                 {viewMode === 'custom' && (
-                    <div className="flex items-end gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-fade-in">
-                        <div className="flex-1 group">
+                    <div className="flex items-end gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-fade-in relative z-10">
+                        <div className="flex-1 group relative">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">From Date</label>
                             <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
                                 <span className="text-xs font-bold text-gray-700 flex-1">{customStart || 'Select Date'}</span>
@@ -308,12 +334,12 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                                         // Reset end date if it becomes invalid
                                         if (customEnd && e.target.value > customEnd) setCustomEnd('');
                                     }}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
                                 />
                             </div>
                         </div>
 
-                        <div className="flex-1 group">
+                        <div className="flex-1 group relative">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">To Date</label>
                             <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
                                 <span className={`text-xs font-bold flex-1 ${customEnd ? 'text-gray-700' : 'text-gray-400'}`}>{customEnd || 'Select Date'}</span>
@@ -323,7 +349,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                                     min={customStart}
                                     value={customEnd} 
                                     onChange={(e) => setCustomEnd(e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
                                 />
                             </div>
                         </div>
