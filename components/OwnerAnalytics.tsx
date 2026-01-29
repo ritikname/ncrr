@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Booking } from '../types';
 
 interface OwnerAnalyticsProps {
@@ -11,6 +11,27 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('monthly');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+
+  // --- AUTO-INITIALIZE CUSTOM DATES ---
+  // When user switches to 'custom', pre-fill with current month so chart isn't empty
+  useEffect(() => {
+    if (viewMode === 'custom' && (!customStart || !customEnd)) {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1); // 1st of current month
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
+        
+        // Format to YYYY-MM-DD
+        const formatDate = (d: Date) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        if (!customStart) setCustomStart(formatDate(start));
+        if (!customEnd) setCustomEnd(formatDate(end));
+    }
+  }, [viewMode]);
 
   // --- 1. GLOBAL DASHBOARD KPI CARDS (Always Lifetime/Fixed) ---
   const globalStats = useMemo(() => {
@@ -82,7 +103,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
             else if (diffDays <= 180) groupBy = 'week';
             else groupBy = 'month';
         } else {
-            // Fallback if dates not picked yet
+            // Should not happen due to useEffect, but fallback
             startDate.setDate(now.getDate() - 7);
             groupBy = 'day';
         }
@@ -100,7 +121,11 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
     // Initialize Chart Buckets (Zero-filling)
     let iter = new Date(startDate);
-    while (iter <= endDate) {
+    
+    // Safety break to prevent infinite loops if dates are invalid
+    let safetyCounter = 0;
+    
+    while (iter <= endDate && safetyCounter < 366) { // Max 1 year iteration safety
         let key = '';
         let label = '';
         
@@ -124,6 +149,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         
         chartMap.set(key, 0);
         chartLabels.push({ label, date: new Date(key === `${iter.getFullYear()}-${iter.getMonth() - 1}` ? iter : key) }); // Approx date for key
+        safetyCounter++;
     }
 
     // Fill Chart Buckets
@@ -142,13 +168,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
             key = `${d.getFullYear()}-${d.getMonth()}`;
         }
 
-        // Only add if key exists (within range) or strictly handle edge cases
-        // Simplification: Check if map has key to avoid out-of-bounds due to week alignment
         if (chartMap.has(key)) {
             chartMap.set(key, (chartMap.get(key) || 0) + b.totalCost);
-        } else {
-            // Try matching closest bucket for weeks/months
-            // For now, ignore edge clippings to keep code clean
         }
     });
 
@@ -271,19 +292,40 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                     </div>
                 </div>
 
-                {/* Custom Date Inputs */}
+                {/* Custom Date Inputs (Refined UI) */}
                 {viewMode === 'custom' && (
-                    <div className="flex items-end gap-2 mb-6 bg-gray-50 p-3 rounded-xl border border-gray-200 animate-fade-in">
-                        <div className="flex-1">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">From</label>
-                            <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1.5" />
+                    <div className="flex items-end gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-fade-in">
+                        <div className="flex-1 group">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">From Date</label>
+                            <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
+                                <span className="text-xs font-bold text-gray-700 flex-1">{customStart || 'Select Date'}</span>
+                                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <input 
+                                    type="date" 
+                                    value={customStart} 
+                                    onChange={(e) => {
+                                        setCustomStart(e.target.value);
+                                        // Reset end date if it becomes invalid
+                                        if (customEnd && e.target.value > customEnd) setCustomEnd('');
+                                    }}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                />
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">To</label>
-                            <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="w-full text-xs font-bold bg-white border border-gray-200 rounded-lg px-2 py-1.5" />
-                        </div>
-                        <div className="text-xs font-bold text-gray-400 px-2 py-2">
-                            Go
+
+                        <div className="flex-1 group">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">To Date</label>
+                            <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
+                                <span className={`text-xs font-bold flex-1 ${customEnd ? 'text-gray-700' : 'text-gray-400'}`}>{customEnd || 'Select Date'}</span>
+                                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <input 
+                                    type="date" 
+                                    min={customStart}
+                                    value={customEnd} 
+                                    onChange={(e) => setCustomEnd(e.target.value)}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
