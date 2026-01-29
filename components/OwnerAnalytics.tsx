@@ -19,6 +19,11 @@ interface AnalyticsData {
     monthly: { labels: string[], values: number[] };
     yearly: { labels: string[], values: number[] };
   };
+  insights: {
+    weeklySales: { labels: string[], revenue: number[], quantity: number[] };
+    topCars: { car_name: string, quantity: number, revenue: number }[];
+    typePerformance: { category: string, quantity: number, revenue: number }[];
+  };
 }
 
 const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
@@ -60,9 +65,16 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
       );
   }
 
-  const { stats, charts } = data;
+  const { stats, charts, insights } = data;
   const currentChart = charts[viewMode];
   const maxChartValue = Math.max(...currentChart.values, 100);
+
+  // Safe defaults for insights if API returns partial data
+  const topCars = insights?.topCars || [];
+  const typePerf = insights?.typePerformance || [];
+  const weeklySales = insights?.weeklySales || { labels: [], revenue: [], quantity: [] };
+
+  const maxWeeklyRevenue = Math.max(...weeklySales.revenue, 10);
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
@@ -182,6 +194,121 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
             </div>
             {/* Spacer for labels */}
             <div className="h-6"></div>
+        </div>
+
+        {/* PERFORMANCE INSIGHTS GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Left: Performance Mix (Top Cars & Types) */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                       <h3 className="text-lg font-bold text-gray-900">Performance Leaders</h3>
+                       <p className="text-xs text-gray-500 font-medium mt-1">Top performing cars & categories (Last 30 Days)</p>
+                    </div>
+                </div>
+
+                <div className="space-y-8">
+                    {/* Top Cars List */}
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">Top 5 Cars</h4>
+                        {topCars.length > 0 ? (
+                            <div className="space-y-4">
+                                {topCars.map((car, idx) => (
+                                    <div key={idx} className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                #{idx + 1}
+                                            </span>
+                                            <span className="font-bold text-gray-900">{car.car_name}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block font-bold text-gray-900">₹{car.revenue.toLocaleString()}</span>
+                                            <span className="text-[10px] text-gray-400">{car.quantity} Trips</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-gray-400 text-xs italic">No car data available</div>
+                        )}
+                    </div>
+
+                    {/* Fleet Mix (Bars) */}
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">Revenue by Category</h4>
+                        {typePerf.length > 0 ? (
+                            <div className="space-y-3">
+                                {typePerf.map((type, idx) => {
+                                    const totalRevenue = typePerf.reduce((sum, t) => sum + t.revenue, 0);
+                                    const percent = totalRevenue > 0 ? Math.round((type.revenue / totalRevenue) * 100) : 0;
+                                    return (
+                                        <div key={idx} className="group">
+                                            <div className="flex justify-between text-xs font-bold mb-1">
+                                                <span>{type.category}</span>
+                                                <span className="text-gray-500">{percent}% (₹{type.revenue.toLocaleString()})</span>
+                                            </div>
+                                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                                <div 
+                                                    className="bg-black h-full rounded-full transition-all duration-1000 ease-out group-hover:bg-red-600" 
+                                                    style={{ width: `${percent}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-gray-400 text-xs italic">No category data available</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Right: Weekly Breakdown Chart/List */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full flex flex-col">
+                <div className="mb-6">
+                    <h3 className="text-lg font-bold text-gray-900">This Week's Activity</h3>
+                    <p className="text-xs text-gray-500 font-medium mt-1">Car-wise revenue for the last 7 days</p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide max-h-[400px]">
+                    {weeklySales.labels.length > 0 ? (
+                        <div className="space-y-4">
+                            {weeklySales.labels.map((label, idx) => {
+                                const rev = weeklySales.revenue[idx];
+                                const qty = weeklySales.quantity[idx];
+                                const widthPercent = maxWeeklyRevenue > 0 ? (rev / maxWeeklyRevenue) * 100 : 0;
+
+                                return (
+                                    <div key={idx} className="flex items-center gap-4">
+                                        <div className="w-24 flex-shrink-0 text-right">
+                                            <div className="text-xs font-bold text-gray-900 truncate" title={label}>{label}</div>
+                                            <div className="text-[10px] text-gray-400">{qty} Booking{qty !== 1 ? 's' : ''}</div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="h-8 bg-gray-50 rounded-r-xl flex items-center relative group overflow-hidden">
+                                                <div 
+                                                    className="absolute top-0 left-0 h-full bg-red-100 rounded-r-xl transition-all duration-700 ease-out"
+                                                    style={{ width: `${Math.max(widthPercent, 2)}%` }}
+                                                ></div>
+                                                <span className="relative z-10 pl-3 text-xs font-bold text-red-700">₹{rev.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-center text-gray-400">
+                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-2">
+                                <span className="text-2xl">💤</span>
+                            </div>
+                            <p className="text-sm font-bold">No sales yet this week.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     </div>
   );
