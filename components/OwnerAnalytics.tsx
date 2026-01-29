@@ -35,20 +35,29 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
   const [customEnd, setCustomEnd] = useState('');
 
   useEffect(() => {
-    fetchData();
-  }, [range]); // Fetch when range changes. Custom date fetch handled by Apply button.
+    // Only auto-fetch if NOT custom. Custom is handled manually via "Go"
+    if (range !== 'custom') {
+        fetchData();
+    }
+  }, [range]);
 
-  const fetchData = async () => {
+  const fetchData = async (overrides?: { range?: string; startDate?: string; endDate?: string }) => {
     setLoading(true);
     try {
-      const params: any = { range };
-      if (range === 'custom') {
-          if (!customStart || !customEnd) {
+      // Use overrides if provided, otherwise fall back to state
+      const activeRange = overrides?.range || range;
+      const params: any = { range: activeRange };
+
+      if (activeRange === 'custom') {
+          const start = overrides?.startDate || customStart;
+          const end = overrides?.endDate || customEnd;
+
+          if (!start || !end) {
               setLoading(false);
               return; // Don't fetch invalid custom range
           }
-          params.startDate = customStart;
-          params.endDate = customEnd;
+          params.startDate = start;
+          params.endDate = end;
       }
       
       const res = await api.analytics.getSalesReport(params);
@@ -63,8 +72,13 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
 
   const handleCustomApply = () => {
       if (customStart && customEnd) {
+          if (customStart > customEnd) {
+              alert("Start date cannot be after end date.");
+              return;
+          }
           setRange('custom');
-          fetchData(); // Trigger fetch manually for custom apply
+          // Force fetch with new values immediately to avoid state race conditions
+          fetchData({ range: 'custom', startDate: customStart, endDate: customEnd }); 
       } else {
           alert("Please select both start and end dates.");
       }
@@ -181,24 +195,25 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
                         ))}
                     </div>
                     {/* Custom Range */}
-                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-200">
+                    <div className={`flex items-center gap-2 p-1 rounded-xl border transition-all ${range === 'custom' ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
                         <input 
                             type="date" 
                             value={customStart} 
-                            onChange={(e) => { setCustomStart(e.target.value); setRange('custom'); }} 
+                            onChange={(e) => setCustomStart(e.target.value)} 
                             className="bg-transparent text-xs font-bold text-gray-700 w-24 outline-none px-1"
                         />
                         <span className="text-gray-400 text-xs">-</span>
                         <input 
                             type="date" 
                             value={customEnd} 
-                            onChange={(e) => { setCustomEnd(e.target.value); setRange('custom'); }} 
+                            min={customStart}
+                            onChange={(e) => setCustomEnd(e.target.value)} 
                             className="bg-transparent text-xs font-bold text-gray-700 w-24 outline-none px-1"
                         />
                         <button 
                             onClick={handleCustomApply}
                             className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                                range === 'custom' && customStart && customEnd ? 'bg-black text-white' : 'bg-gray-200 text-gray-400'
+                                customStart && customEnd ? 'bg-black text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400'
                             }`}
                         >
                             Go
