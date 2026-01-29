@@ -97,11 +97,11 @@ export const api = {
         imageBase64: c.image_url, 
         // Parse gallery JSON string to array
         galleryImages: c.gallery_images ? JSON.parse(c.gallery_images) : [],
-        pricePerDay: c.price_per_day,
-        totalStock: c.total_stock,
+        pricePerDay: Number(c.price_per_day || 0),
+        totalStock: Number(c.total_stock || 1),
         fuelType: c.fuel_type,
         id: c.uuid || c.id.toString(),
-        createdAt: c.created_at || c.createdAt || Date.now() // Map created_at to createdAt
+        createdAt: c.created_at || c.createdAt || Date.now() 
       }));
     },
     
@@ -147,8 +147,10 @@ export const api = {
         customerPhone: b.customer_phone,
         startDate: b.start_date,
         endDate: b.end_date,
-        totalCost: b.total_cost,
-        advanceAmount: b.advance_amount,
+        // STRICT NUMBER CASTING TO PREVENT 'NaN' or String Concat
+        totalCost: Number(b.total_cost || 0),
+        advanceAmount: Number(b.advance_amount || 0),
+        discountAmount: Number(b.discount_amount || 0),
         transactionId: b.transaction_id,
         isApproved: b.is_approved === 1,
         userLocation: b.location, 
@@ -161,9 +163,8 @@ export const api = {
         securityDepositType: b.security_deposit_type,
         securityDepositTransactionId: b.security_deposit_transaction_id,
         promoCode: b.promo_code,
-        discountAmount: b.discount_amount,
         
-        createdAt: b.created_at || b.createdAt || Date.now() // Map created_at to createdAt
+        createdAt: b.created_at || b.createdAt || Date.now() 
       }));
     },
 

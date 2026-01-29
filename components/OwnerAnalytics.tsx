@@ -31,22 +31,31 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     }
   }, [viewMode]);
 
-  // --- HELPER: SMART TIMESTAMP PARSER ---
-  // Detects if timestamp is in seconds (SQLite default) or milliseconds (JS default)
-  const parseTimestamp = (ts: number | string | undefined) => {
-      if (!ts) return new Date(); // Fallback to now if missing
-      const num = Number(ts);
-      if (isNaN(num)) return new Date(); // Fallback if NaN
+  // --- HELPER: ROBUST TIMESTAMP PARSER ---
+  // Handles Seconds (SQLite), Milliseconds (JS), ISO Strings (Postgres/Raw), and Date objects
+  const parseTimestamp = (ts: any) => {
+      if (!ts) return new Date(); // Fallback to now
+      if (ts instanceof Date) return ts;
       
-      // If timestamp is less than 10 billion, it's likely seconds (valid until year 2286)
-      // JS Date requires milliseconds.
-      if (num < 10000000000) return new Date(num * 1000);
-      return new Date(num);
+      const num = Number(ts);
+      
+      // If valid number
+      if (!isNaN(num)) {
+          // If < 10 billion, it's seconds. Else milliseconds.
+          if (num < 10000000000) return new Date(num * 1000);
+          return new Date(num);
+      }
+      
+      // If string (e.g. "2024-01-01")
+      const d = new Date(ts);
+      if (!isNaN(d.getTime())) return d;
+      
+      return new Date(); // Final fallback
   };
   
-  // Helper to safely get the createdAt timestamp, checking both camelCase and snake_case
   const getCreatedDate = (booking: Booking | any) => {
-      return parseTimestamp(booking.createdAt || booking.created_at);
+      // Prioritize createdAt, fallback to created_at
+      return parseTimestamp(booking.createdAt !== undefined ? booking.createdAt : booking.created_at);
   };
 
   // --- HELPER: Consistent Key Generation (Local Time) ---
@@ -95,17 +104,17 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
     let revenueMonth = 0;
     let revenueWeek = 0;
-    const totalRevenue = validBookings.reduce((sum, b) => sum + b.totalCost, 0);
+    const totalRevenue = validBookings.reduce((sum, b) => sum + (Number(b.totalCost) || 0), 0);
 
     validBookings.forEach(b => {
         const bDate = getCreatedDate(b);
+        const cost = Number(b.totalCost) || 0;
         
         if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
-            revenueMonth += b.totalCost;
+            revenueMonth += cost;
         }
-        // Simple comparison for week
         if (bDate.getTime() >= startOfWeek.getTime()) {
-            revenueWeek += b.totalCost;
+            revenueWeek += cost;
         }
     });
 
@@ -126,20 +135,23 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     let startDate = new Date();
     let endDate = new Date();
     
-    // End of today
     endDate.setHours(23,59,59,999);
     
     let groupBy: 'day' | 'week' | 'month' = 'month';
 
+    // IMPORTANT: Clone 'now' before modifying to avoid reference bugs
     if (viewMode === 'daily') {
+        startDate = new Date(now);
         startDate.setDate(now.getDate() - 30);
         startDate.setHours(0,0,0,0);
         groupBy = 'day';
     } else if (viewMode === 'weekly') {
+        startDate = new Date(now);
         startDate.setDate(now.getDate() - 84); // 12 weeks
         startDate.setHours(0,0,0,0);
         groupBy = 'week';
     } else if (viewMode === 'monthly') {
+        startDate = new Date(now);
         startDate.setMonth(now.getMonth() - 11);
         startDate.setDate(1);
         startDate.setHours(0,0,0,0);
@@ -157,7 +169,9 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
             else if (diffDays <= 180) groupBy = 'week';
             else groupBy = 'month';
         } else {
+            startDate = new Date(now);
             startDate.setDate(now.getDate() - 7);
+            startDate.setHours(0,0,0,0);
             groupBy = 'day';
         }
     }
@@ -187,8 +201,13 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         if (groupBy === 'day') iter.setDate(iter.getDate() + 1);
         else if (groupBy === 'week') iter.setDate(iter.getDate() + 7);
         else {
-            iter.setDate(1);
-            iter.setMonth(iter.getMonth() + 1);
+            // Safe Month Increment
+            const currentMonth = iter.getMonth();
+            iter.setMonth(currentMonth + 1);
+            // Handle edge case (e.g. Jan 31 -> Feb 28/29)
+            if (iter.getMonth() !== (currentMonth + 1) % 12) {
+                iter.setDate(0); 
+            }
         }
         safetyCounter++;
     }
@@ -199,7 +218,8 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         const { key } = getKeyAndLabel(d, groupBy);
         
         if (chartMap.has(key)) {
-            chartMap.set(key, (chartMap.get(key) || 0) + b.totalCost);
+            const val = chartMap.get(key) || 0;
+            chartMap.set(key, val + (Number(b.totalCost) || 0));
         }
     });
 
@@ -214,7 +234,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         if (!carStats[b.carId]) {
             carStats[b.carId] = { revenue: 0, count: 0, name: b.carName };
         }
-        carStats[b.carId].revenue += b.totalCost;
+        carStats[b.carId].revenue += (Number(b.totalCost) || 0);
         carStats[b.carId].count += 1;
     });
     
@@ -222,7 +242,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5);
 
-    const periodRevenue = filtered.reduce((s, b) => s + b.totalCost, 0);
+    const periodRevenue = filtered.reduce((s, b) => s + (Number(b.totalCost) || 0), 0);
 
     return { chartData, topCars, periodRevenue };
   }, [bookings, viewMode, customStart, customEnd]);
