@@ -30,37 +30,16 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
   const [error, setError] = useState('');
   
   // Filter States
-  const [range, setRange] = useState<'7d' | '8w' | 'monthly' | 'yearly' | 'custom'>('monthly');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [range, setRange] = useState<'7d' | '8w' | 'monthly' | 'yearly'>('monthly');
 
   useEffect(() => {
-    // Only auto-fetch if NOT custom. Custom is handled manually via "Go"
-    if (range !== 'custom') {
-        fetchData();
-    }
+    fetchData();
   }, [range]);
 
-  const fetchData = async (overrides?: { range?: string; startDate?: string; endDate?: string }) => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      // Use overrides if provided, otherwise fall back to state
-      const activeRange = overrides?.range || range;
-      const params: any = { range: activeRange };
-
-      if (activeRange === 'custom') {
-          const start = overrides?.startDate || customStart;
-          const end = overrides?.endDate || customEnd;
-
-          if (!start || !end) {
-              setLoading(false);
-              return; // Don't fetch invalid custom range
-          }
-          params.startDate = start;
-          params.endDate = end;
-      }
-      
-      const res = await api.analytics.getSalesReport(params);
+      const res = await api.analytics.getSalesReport({ range });
       setData(res);
     } catch (e: any) {
       console.error(e);
@@ -68,20 +47,6 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCustomApply = () => {
-      if (customStart && customEnd) {
-          if (customStart > customEnd) {
-              alert("Start date cannot be after end date.");
-              return;
-          }
-          setRange('custom');
-          // Force fetch with new values immediately to avoid state race conditions
-          fetchData({ range: 'custom', startDate: customStart, endDate: customEnd }); 
-      } else {
-          alert("Please select both start and end dates.");
-      }
   };
 
   if (loading && !data) {
@@ -177,48 +142,20 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
                     </p>
                 </div>
                 {/* Filter Controls */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                    {/* Presets */}
-                    <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
-                        {(['7d', '8w', 'monthly', 'yearly'] as const).map((r) => (
-                            <button
-                                key={r}
-                                onClick={() => { setRange(r); setCustomStart(''); setCustomEnd(''); }}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${
-                                    range === r 
-                                    ? 'bg-white text-gray-900 shadow-sm' 
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                            >
-                                {r === '7d' ? '7 Days' : r === '8w' ? '8 Weeks' : r === 'monthly' ? 'Monthly' : 'Yearly'}
-                            </button>
-                        ))}
-                    </div>
-                    {/* Custom Range */}
-                    <div className={`flex items-center gap-2 p-1 rounded-xl border transition-all ${range === 'custom' ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
-                        <input 
-                            type="date" 
-                            value={customStart} 
-                            onChange={(e) => setCustomStart(e.target.value)} 
-                            className="bg-transparent text-xs font-bold text-gray-700 w-24 outline-none px-1"
-                        />
-                        <span className="text-gray-400 text-xs">-</span>
-                        <input 
-                            type="date" 
-                            value={customEnd} 
-                            min={customStart}
-                            onChange={(e) => setCustomEnd(e.target.value)} 
-                            className="bg-transparent text-xs font-bold text-gray-700 w-24 outline-none px-1"
-                        />
-                        <button 
-                            onClick={handleCustomApply}
-                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                                customStart && customEnd ? 'bg-black text-white hover:bg-gray-800' : 'bg-gray-200 text-gray-400'
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+                    {(['7d', '8w', 'monthly', 'yearly'] as const).map((r) => (
+                        <button
+                            key={r}
+                            onClick={() => setRange(r)}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${
+                                range === r 
+                                ? 'bg-white text-gray-900 shadow-sm' 
+                                : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            Go
+                            {r === '7d' ? '7 Days' : r === '8w' ? '8 Weeks' : r === 'monthly' ? 'Monthly' : 'Yearly'}
                         </button>
-                    </div>
+                    ))}
                 </div>
             </div>
 
