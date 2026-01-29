@@ -33,12 +33,20 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
   // --- HELPER: SMART TIMESTAMP PARSER ---
   // Detects if timestamp is in seconds (SQLite default) or milliseconds (JS default)
-  const parseTimestamp = (ts: number | string) => {
+  const parseTimestamp = (ts: number | string | undefined) => {
+      if (!ts) return new Date(); // Fallback to now if missing
       const num = Number(ts);
+      if (isNaN(num)) return new Date(); // Fallback if NaN
+      
       // If timestamp is less than 10 billion, it's likely seconds (valid until year 2286)
       // JS Date requires milliseconds.
       if (num < 10000000000) return new Date(num * 1000);
       return new Date(num);
+  };
+  
+  // Helper to safely get the createdAt timestamp, checking both camelCase and snake_case
+  const getCreatedDate = (booking: Booking | any) => {
+      return parseTimestamp(booking.createdAt || booking.created_at);
   };
 
   // --- HELPER: Consistent Key Generation (Local Time) ---
@@ -90,7 +98,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     const totalRevenue = validBookings.reduce((sum, b) => sum + b.totalCost, 0);
 
     validBookings.forEach(b => {
-        const bDate = parseTimestamp(b.createdAt);
+        const bDate = getCreatedDate(b);
         
         if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
             revenueMonth += b.totalCost;
@@ -156,7 +164,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
     // Filter Bookings within Range
     const filtered = validBookings.filter(b => {
-        const d = parseTimestamp(b.createdAt);
+        const d = getCreatedDate(b);
         return d.getTime() >= startDate.getTime() && d.getTime() <= endDate.getTime();
     });
 
@@ -187,12 +195,9 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
     // Fill Buckets
     filtered.forEach(b => {
-        const d = parseTimestamp(b.createdAt);
+        const d = getCreatedDate(b);
         const { key } = getKeyAndLabel(d, groupBy);
         
-        // Accumulate if the key exists (it should, given the date filter logic)
-        // If the date range matches but bucket logic is slightly off (e.g. week start), map might miss
-        // Ideally we snap the booking date to the bucket key logic
         if (chartMap.has(key)) {
             chartMap.set(key, (chartMap.get(key) || 0) + b.totalCost);
         }

@@ -100,7 +100,8 @@ export const api = {
         pricePerDay: c.price_per_day,
         totalStock: c.total_stock,
         fuelType: c.fuel_type,
-        id: c.uuid || c.id.toString()
+        id: c.uuid || c.id.toString(),
+        createdAt: c.created_at || c.createdAt || Date.now() // Map created_at to createdAt
       }));
     },
     
@@ -160,7 +161,9 @@ export const api = {
         securityDepositType: b.security_deposit_type,
         securityDepositTransactionId: b.security_deposit_transaction_id,
         promoCode: b.promo_code,
-        discountAmount: b.discount_amount
+        discountAmount: b.discount_amount,
+        
+        createdAt: b.created_at || b.createdAt || Date.now() // Map created_at to createdAt
       }));
     },
 
