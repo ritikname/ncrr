@@ -231,6 +231,147 @@ api.get('/images/:folder/:filename', async (c) => {
   });
 });
 
+// NEW: Owner Sales Report Endpoint
+api.get('/owner/sales-report', authMiddleware, ownerMiddleware, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB Error' }, 500);
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const startOfYear = Math.floor(new Date(currentYear, 0, 1).getTime() / 1000);
+  
+  // 7 days ago (at 00:00:00 of that day, roughly)
+  // To be precise with gaps, we will fetch data and map in JS
+  const sevenDaysAgo = Math.floor(now.getTime() / 1000) - (7 * 24 * 60 * 60);
+  const eightWeeksAgo = Math.floor(now.getTime() / 1000) - (60 * 24 * 60 * 60); // Fetch extra buffer
+
+  const query = async (sql: string, params: any[] = []) => {
+      const { results } = await c.env.DB.prepare(sql).bind(...params).all();
+      return results;
+  };
+
+  try {
+      // 1. Overall Stats
+      const stats = await c.env.DB.prepare("SELECT SUM(total_cost) as totalRevenue, COUNT(*) as totalBookings FROM bookings WHERE status != 'cancelled'").first();
+      const totalRevenue = stats?.totalRevenue || 0;
+      const totalBookings = stats?.totalBookings || 0;
+      const avgBookingValue = totalBookings > 0 ? Math.round(totalRevenue / totalBookings) : 0;
+
+      // 2. Monthly (Current Year - All 12 months)
+      const monthlyData = await query(`
+        SELECT strftime('%m', datetime(created_at, 'unixepoch')) as month, SUM(total_cost) as total
+        FROM bookings
+        WHERE status != 'cancelled' AND created_at >= ?
+        GROUP BY month
+      `, [startOfYear]);
+
+      const monthlyLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const monthlyValues = new Array(12).fill(0);
+      
+      if (monthlyData) {
+        monthlyData.forEach((row: any) => {
+            const mIndex = parseInt(row.month) - 1;
+            if (mIndex >= 0 && mIndex < 12) monthlyValues[mIndex] = row.total;
+        });
+      }
+
+      // 3. Daily (Last 7 Days - Gap filling)
+      const dailyData = await query(`
+        SELECT strftime('%Y-%m-%d', datetime(created_at, 'unixepoch')) as day, SUM(total_cost) as total
+        FROM bookings
+        WHERE status != 'cancelled' AND created_at >= ?
+        GROUP BY day
+      `, [sevenDaysAgo]);
+
+      const dailyMap = new Map();
+      if (dailyData) dailyData.forEach((row: any) => dailyMap.set(row.day, row.total));
+
+      const dailyLabels = [];
+      const dailyValues = [];
+      for(let i=6; i>=0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dayStr = String(d.getDate()).padStart(2, '0');
+          const key = `${y}-${m}-${dayStr}`;
+          
+          dailyLabels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+          dailyValues.push(dailyMap.get(key) || 0);
+      }
+
+      // 4. Weekly (Last 8 Weeks - JS Bucket Logic)
+      // Fetch raw data for last ~60 days
+      const rawRecent = await query(`
+         SELECT created_at, total_cost 
+         FROM bookings 
+         WHERE status != 'cancelled' AND created_at >= ?
+      `, [eightWeeksAgo]);
+      
+      const weeklyValues = new Array(8).fill(0);
+      const weeklyLabels = new Array(8).fill('');
+      const nowTs = Date.now();
+      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+
+      // Initialize labels (e.g., "Oct 25")
+      for (let i = 0; i < 8; i++) {
+         const d = new Date(nowTs - (i * oneWeekMs));
+         weeklyLabels[7-i] = `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`;
+      }
+
+      // Bucket data
+      if (rawRecent) {
+        rawRecent.forEach((b: any) => {
+           const bTime = b.created_at * 1000;
+           const diff = nowTs - bTime;
+           const weekIndex = Math.floor(diff / oneWeekMs);
+           if (weekIndex >= 0 && weekIndex < 8) {
+               weeklyValues[7-weekIndex] += b.total_cost;
+           }
+        });
+      }
+
+      // 5. Yearly (All time)
+      const yearlyData = await query(`
+         SELECT strftime('%Y', datetime(created_at, 'unixepoch')) as year, SUM(total_cost) as total
+         FROM bookings
+         WHERE status != 'cancelled'
+         GROUP BY year
+         ORDER BY year ASC
+      `);
+      
+      // Ensure at least current year is present if empty
+      const yearlyLabels = yearlyData && yearlyData.length ? yearlyData.map((d: any) => d.year) : [String(currentYear)];
+      const yearlyValues = yearlyData && yearlyData.length ? yearlyData.map((d: any) => d.total) : [0];
+
+      return c.json({
+          stats: {
+              totalRevenue,
+              totalBookings,
+              avgBookingValue
+          },
+          charts: {
+              daily: { labels: dailyLabels, values: dailyValues },
+              weekly: { labels: weeklyLabels, values: weeklyValues },
+              monthly: { labels: monthlyLabels, values: monthlyValues },
+              yearly: { labels: yearlyLabels, values: yearlyValues }
+          }
+      });
+
+  } catch (e: any) {
+      console.error('Analytics Error:', e);
+      // Return safe empty structure on error to prevent UI crash
+      return c.json({
+          stats: { totalRevenue: 0, totalBookings: 0, avgBookingValue: 0 },
+          charts: {
+             daily: { labels: [], values: [] },
+             weekly: { labels: [], values: [] },
+             monthly: { labels: [], values: [] },
+             yearly: { labels: [], values: [] }
+          }
+      });
+  }
+});
+
 // --- AUTH & USER ROUTES ---
 api.post('/auth/login', async (c) => {
   try {

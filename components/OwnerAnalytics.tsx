@@ -1,268 +1,68 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { Booking } from '../types';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
 
+// Props are ignored now as we fetch data internally for accuracy
 interface OwnerAnalyticsProps {
-  bookings: Booking[];
+  bookings?: any[]; 
 }
 
-const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
-  // View State for Chart & Analysis
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('monthly');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+interface AnalyticsData {
+  stats: {
+    totalRevenue: number;
+    totalBookings: number;
+    avgBookingValue: number;
+  };
+  charts: {
+    daily: { labels: string[], values: number[] };
+    weekly: { labels: string[], values: number[] };
+    monthly: { labels: string[], values: number[] };
+    yearly: { labels: string[], values: number[] };
+  };
+}
 
-  // --- AUTO-INITIALIZE CUSTOM DATES ---
+const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = () => {
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+
   useEffect(() => {
-    if (viewMode === 'custom' && (!customStart || !customEnd)) {
-        const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), 1); 
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0); 
-        
-        const formatDate = (d: Date) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+    fetchData();
+  }, []);
 
-        if (!customStart) setCustomStart(formatDate(start));
-        if (!customEnd) setCustomEnd(formatDate(end));
+  const fetchData = async () => {
+    try {
+      const res = await api.analytics.getSalesReport();
+      setData(res);
+    } catch (e: any) {
+      console.error(e);
+      setError('Failed to load sales report');
+    } finally {
+      setLoading(false);
     }
-  }, [viewMode]);
-
-  // --- HELPER: ROBUST TIMESTAMP PARSER ---
-  // Returns a Date object
-  const parseTimestamp = (ts: any) => {
-      if (!ts) return new Date(); // Fallback to now
-      if (ts instanceof Date) return ts;
-      
-      const num = Number(ts);
-      if (!isNaN(num)) {
-          // If < 10 billion, it's seconds. Else milliseconds.
-          if (num < 10000000000) return new Date(num * 1000);
-          return new Date(num);
-      }
-      const d = new Date(ts);
-      if (!isNaN(d.getTime())) return d;
-      return new Date(); 
-  };
-  
-  // Helper to normalize a date to Midnight (00:00:00) to avoid time mismatches
-  const toMidnight = (d: Date) => {
-      const copy = new Date(d);
-      copy.setHours(0, 0, 0, 0);
-      return copy;
   };
 
-  const getCreatedDate = (booking: Booking | any) => {
-      return parseTimestamp(booking.createdAt !== undefined ? booking.createdAt : booking.created_at);
-  };
+  if (loading) {
+      return (
+          <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+          </div>
+      );
+  }
 
-  // --- HELPER: Key Generation ---
-  // Generates consistent keys like "2024-01-15" from any date object
-  const getKeyAndLabel = (dateInput: Date, type: 'day' | 'week' | 'month') => {
-      const date = toMidnight(dateInput);
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      
-      if (type === 'day') {
-          return {
-              key: `${y}-${m}-${d}`,
-              label: date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-          };
-      } else if (type === 'week') {
-          // Snap to Monday
-          const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
-          // Difference to subtract to get to Monday (1)
-          // If Sun(0), diff = -6. If Mon(1), diff = 0. If Tue(2), diff = 1.
-          const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-          const weekStart = new Date(date);
-          weekStart.setDate(diff);
-          
-          const wy = weekStart.getFullYear();
-          const wm = String(weekStart.getMonth() + 1).padStart(2, '0');
-          const wd = String(weekStart.getDate()).padStart(2, '0');
-          
-          return {
-              key: `${wy}-${wm}-${wd}`, // Key is always the Monday of that week
-              label: weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-          };
-      } else {
-          return {
-              key: `${y}-${m}`,
-              label: date.toLocaleDateString('default', { month: 'short', year: '2-digit' })
-          };
-      }
-  };
+  if (error || !data) {
+      return (
+          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+              <p className="text-gray-400 font-bold">{error || 'No data available'}</p>
+              <button onClick={fetchData} className="mt-4 text-red-600 font-bold hover:underline">Retry</button>
+          </div>
+      );
+  }
 
-  // --- 1. GLOBAL DASHBOARD KPI CARDS ---
-  const globalStats = useMemo(() => {
-    const validBookings = bookings.filter(b => b.status !== 'cancelled');
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    
-    // Helper for "This Week"
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
-    startOfWeek.setHours(0,0,0,0);
-
-    let revenueMonth = 0;
-    let revenueWeek = 0;
-    const totalRevenue = validBookings.reduce((sum, b) => sum + (Number(b.totalCost) || 0), 0);
-
-    validBookings.forEach(b => {
-        const bDate = getCreatedDate(b);
-        const cost = Number(b.totalCost) || 0;
-        
-        if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
-            revenueMonth += cost;
-        }
-        if (bDate.getTime() >= startOfWeek.getTime()) {
-            revenueWeek += cost;
-        }
-    });
-
-    return {
-        totalRevenue,
-        totalTrips: validBookings.length,
-        revenueMonth,
-        revenueWeek,
-        avgTicket: validBookings.length > 0 ? Math.round(totalRevenue / validBookings.length) : 0
-    };
-  }, [bookings]);
-
-  // --- 2. DYNAMIC ANALYSIS DATA ---
-  const analysisData = useMemo(() => {
-    const validBookings = bookings.filter(b => b.status !== 'cancelled');
-    const now = new Date();
-    
-    let startDate = new Date();
-    let endDate = new Date();
-    
-    // End date is always end of today
-    endDate.setHours(23,59,59,999);
-    
-    let groupBy: 'day' | 'week' | 'month' = 'month';
-
-    if (viewMode === 'daily') {
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - 30);
-        startDate.setHours(0,0,0,0);
-        groupBy = 'day';
-    } else if (viewMode === 'weekly') {
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - 84); // 12 weeks
-        startDate.setHours(0,0,0,0);
-        groupBy = 'week';
-    } else if (viewMode === 'monthly') {
-        startDate = new Date(now);
-        startDate.setMonth(now.getMonth() - 11);
-        startDate.setDate(1);
-        startDate.setHours(0,0,0,0);
-        groupBy = 'month';
-    } else if (viewMode === 'custom') {
-        if (customStart && customEnd) {
-            startDate = new Date(customStart);
-            startDate.setHours(0,0,0,0);
-            
-            endDate = new Date(customEnd);
-            endDate.setHours(23,59,59,999);
-            
-            const diffDays = (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
-            if (diffDays <= 45) groupBy = 'day';
-            else if (diffDays <= 180) groupBy = 'week';
-            else groupBy = 'month';
-        } else {
-            startDate = new Date(now);
-            startDate.setDate(now.getDate() - 7);
-            startDate.setHours(0,0,0,0);
-            groupBy = 'day';
-        }
-    }
-
-    // Filter Bookings within Range
-    const filtered = validBookings.filter(b => {
-        const d = getCreatedDate(b);
-        return d.getTime() >= startDate.getTime() && d.getTime() <= endDate.getTime();
-    });
-
-    // --- Generate Chart Buckets ---
-    const chartMap = new Map<string, number>();
-    const chartLabels: { label: string }[] = [];
-
-    // Use a fresh iterator to fill buckets from start to end
-    let iter = new Date(startDate);
-    let safetyCounter = 0;
-    
-    while (iter <= endDate && safetyCounter < 366) {
-        const { key, label } = getKeyAndLabel(iter, groupBy);
-        
-        if (!chartMap.has(key)) {
-             chartMap.set(key, 0);
-             chartLabels.push({ label });
-        }
-        
-        // Increment logic
-        if (groupBy === 'day') {
-            iter.setDate(iter.getDate() + 1);
-        } else if (groupBy === 'week') {
-            iter.setDate(iter.getDate() + 7);
-        } else {
-            // Month increment
-            const currentMonth = iter.getMonth();
-            iter.setMonth(currentMonth + 1);
-            // Handle edge case (e.g. Jan 31 -> Feb 28)
-            if (iter.getMonth() !== (currentMonth + 1) % 12) {
-                iter.setDate(0); 
-            }
-        }
-        safetyCounter++;
-    }
-
-    // Fill Buckets with Data
-    filtered.forEach(b => {
-        const d = getCreatedDate(b);
-        const { key } = getKeyAndLabel(d, groupBy);
-        
-        // If the bucket exists, add to it. 
-        // If it doesn't exist (edge case), we ignore it or could add it dynamically.
-        // Given we iterate start to end, it should exist if filtered correctly.
-        if (chartMap.has(key)) {
-            const val = chartMap.get(key) || 0;
-            const cost = Number(b.totalCost) || 0;
-            chartMap.set(key, val + cost);
-        }
-    });
-
-    const chartData = Array.from(chartMap).map(([_, value], idx) => ({
-        label: chartLabels[idx]?.label || '',
-        value
-    }));
-
-    // Top Performers
-    const carStats: Record<string, { revenue: number, count: number, name: string }> = {};
-    filtered.forEach(b => {
-        if (!carStats[b.carId]) {
-            carStats[b.carId] = { revenue: 0, count: 0, name: b.carName };
-        }
-        carStats[b.carId].revenue += (Number(b.totalCost) || 0);
-        carStats[b.carId].count += 1;
-    });
-    
-    const topCars = Object.values(carStats)
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-    const periodRevenue = filtered.reduce((s, b) => s + (Number(b.totalCost) || 0), 0);
-
-    return { chartData, topCars, periodRevenue };
-  }, [bookings, viewMode, customStart, customEnd]);
-
-  // Calculate Max Value for Chart Scaling
-  const maxChartValue = Math.max(...analysisData.chartData.map(d => d.value), 10); // Minimum scale of 10 to avoid div/0
+  const { stats, charts } = data;
+  const currentChart = charts[viewMode];
+  const maxChartValue = Math.max(...currentChart.values, 100);
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
@@ -270,189 +70,118 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h2 className="text-2xl font-black text-gray-900 uppercase italic">Sales Intelligence</h2>
-                <p className="text-gray-500 text-sm">Financial performance and fleet metrics.</p>
+                <p className="text-gray-500 text-sm">Real-time financial performance and fleet metrics.</p>
             </div>
-            <div className="bg-white px-4 py-2 rounded-xl border border-gray-100 text-xs font-bold text-gray-500 shadow-sm">
-                Live Data
+            <div className="flex items-center gap-2">
+                 <button onClick={fetchData} className="bg-white p-2 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-500 shadow-sm transition-colors" title="Refresh Data">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                 </button>
+                 <div className="bg-green-50 px-3 py-1.5 rounded-xl border border-green-100 text-[10px] font-bold text-green-700 shadow-sm flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    Live Data
+                </div>
             </div>
         </div>
 
-        {/* Global KPI Cards (Fixed) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Global KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-black text-white p-6 rounded-3xl shadow-xl relative overflow-hidden group">
                 <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 transition-transform group-hover:scale-150 duration-700"></div>
                 <div className="relative z-10">
                     <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Total Revenue</p>
-                    <h3 className="text-3xl font-black">₹{globalStats.totalRevenue.toLocaleString()}</h3>
+                    <h3 className="text-3xl font-black">₹{stats.totalRevenue.toLocaleString()}</h3>
                     <div className="mt-4 flex items-center gap-2 text-xs font-medium text-gray-400">
                         <span className="bg-white/20 px-2 py-1 rounded text-white">Lifetime</span>
-                        <span>{globalStats.totalTrips} Bookings</span>
+                        <span>All bookings</span>
                     </div>
                 </div>
             </div>
 
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:border-red-100 transition-colors group">
                 <div className="flex justify-between items-start mb-2">
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">This Month</p>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Total Bookings</p>
                     <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                     </div>
                 </div>
-                <h3 className="text-2xl font-black text-gray-900">₹{globalStats.revenueMonth.toLocaleString()}</h3>
-                <p className="text-xs text-gray-400 mt-1">Current calendar month</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:border-emerald-100 transition-colors group">
-                <div className="flex justify-between items-start mb-2">
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">This Week</p>
-                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                    </div>
-                </div>
-                <h3 className="text-2xl font-black text-gray-900">₹{globalStats.revenueWeek.toLocaleString()}</h3>
-                <p className="text-xs text-gray-400 mt-1">Since Sunday</p>
+                <h3 className="text-2xl font-black text-gray-900">{stats.totalBookings}</h3>
+                <p className="text-xs text-gray-400 mt-1">Confirmed trips</p>
             </div>
 
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-start mb-2">
                     <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Avg. Trip Value</p>
                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                 </div>
-                <h3 className="text-2xl font-black text-gray-900">₹{globalStats.avgTicket.toLocaleString()}</h3>
-                <p className="text-xs text-gray-400 mt-1">Per confirmed booking</p>
+                <h3 className="text-2xl font-black text-gray-900">₹{stats.avgBookingValue.toLocaleString()}</h3>
+                <p className="text-xs text-gray-400 mt-1">Per booking</p>
             </div>
         </div>
 
-        {/* ANALYSIS SECTION */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Chart Card */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">Revenue Analysis</h3>
-                        <p className="text-xs text-gray-500 font-bold mt-1">
-                            Period Total: <span className="text-black text-sm">₹{analysisData.periodRevenue.toLocaleString()}</span>
-                        </p>
-                    </div>
-                    {/* View Switcher */}
-                    <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
-                        {(['daily', 'weekly', 'monthly', 'custom'] as const).map((view) => (
-                            <button
-                                key={view}
-                                onClick={() => setViewMode(view)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${
-                                    viewMode === view 
-                                    ? 'bg-white text-gray-900 shadow-sm' 
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                            >
-                                {view === 'daily' ? 'Last 30D' : view === 'weekly' ? 'Last 3M' : view === 'monthly' ? 'Last 1Y' : 'Custom'}
-                            </button>
-                        ))}
-                    </div>
+        {/* ANALYSIS CHART SECTION */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                <div>
+                    <h3 className="text-lg font-bold text-gray-900">Revenue Trends</h3>
+                    <p className="text-xs text-gray-500 font-medium mt-1">
+                        Visualizing sales over time.
+                    </p>
                 </div>
+                {/* View Switcher */}
+                <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
+                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((view) => (
+                        <button
+                            key={view}
+                            onClick={() => setViewMode(view)}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${
+                                viewMode === view 
+                                ? 'bg-white text-gray-900 shadow-sm' 
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            {view === 'daily' ? 'Last 7 Days' : view === 'weekly' ? 'Last 8 Weeks' : view === 'monthly' ? 'Monthly' : 'Yearly'}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
-                {/* Custom Date Inputs */}
-                {viewMode === 'custom' && (
-                    <div className="flex items-end gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-fade-in relative z-10">
-                        <div className="flex-1 group relative">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">From Date</label>
-                            <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
-                                <span className="text-xs font-bold text-gray-700 flex-1">{customStart || 'Select Date'}</span>
-                                <input 
-                                    type="date" 
-                                    value={customStart} 
-                                    onChange={(e) => {
-                                        setCustomStart(e.target.value);
-                                        if (customEnd && e.target.value > customEnd) setCustomEnd('');
-                                    }}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
-                                />
+            {/* Visual Chart */}
+            <div className="h-64 flex items-end justify-between gap-2 sm:gap-4 pb-2 relative border-b border-gray-100">
+                {currentChart.values.length > 0 && currentChart.values.some(v => v > 0) ? (
+                    currentChart.values.map((val, idx) => {
+                        const heightPercent = maxChartValue > 0 ? (val / maxChartValue) * 100 : 0;
+                        const label = currentChart.labels[idx];
+                        
+                        return (
+                            <div key={idx} className="flex-1 flex flex-col items-center group min-w-[30px] h-full justify-end relative">
+                                {/* Tooltip */}
+                                <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none transform translate-y-2 group-hover:translate-y-0 duration-200">
+                                    ₹{val.toLocaleString()}
+                                </div>
+                                
+                                {/* Bar */}
+                                <div 
+                                    className={`w-full mx-1 rounded-t-sm transition-all duration-700 ease-out relative hover:opacity-80 ${val > 0 ? 'bg-red-600' : 'bg-gray-100'}`}
+                                    style={{ height: val > 0 ? `${Math.max(heightPercent, 2)}%` : '4px' }}
+                                ></div>
+                                
+                                {/* Label */}
+                                <span className="absolute -bottom-8 text-[10px] font-bold text-gray-400 w-full text-center truncate px-0.5">
+                                    {label}
+                                </span>
                             </div>
-                        </div>
-
-                        <div className="flex-1 group relative">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">To Date</label>
-                            <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
-                                <span className={`text-xs font-bold flex-1 ${customEnd ? 'text-gray-700' : 'text-gray-400'}`}>{customEnd || 'Select Date'}</span>
-                                <input 
-                                    type="date" 
-                                    min={customStart}
-                                    value={customEnd} 
-                                    onChange={(e) => setCustomEnd(e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
-                                />
-                            </div>
-                        </div>
+                        );
+                    })
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs font-bold bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                        No sales data found for this period.
                     </div>
                 )}
-                
-                {/* Visual Chart */}
-                <div className="h-64 flex items-end justify-between gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    {analysisData.chartData.length > 0 ? (
-                        analysisData.chartData.map((data, idx) => {
-                            const heightPercent = maxChartValue > 0 ? (data.value / maxChartValue) * 100 : 0;
-                            return (
-                                <div key={idx} className="flex-1 flex flex-col items-center group min-w-[30px]">
-                                    <div className="relative w-full bg-gray-50 rounded-t-sm flex items-end justify-center overflow-hidden hover:bg-gray-100 transition-colors h-full">
-                                        {data.value > 0 && (
-                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none">
-                                                ₹{data.value.toLocaleString()}
-                                            </div>
-                                        )}
-                                        <div 
-                                            className={`w-full mx-0.5 rounded-t transition-all duration-700 ease-out relative ${data.value > 0 ? 'bg-red-600' : 'bg-transparent'}`}
-                                            style={{ height: `${data.value > 0 ? Math.max(heightPercent, 2) : 0}%` }}
-                                        >
-                                            <div className="absolute top-0 left-0 w-full h-1 bg-white/20"></div>
-                                        </div>
-                                    </div>
-                                    <span className="text-[9px] font-bold text-gray-400 mt-2 truncate w-full text-center">{data.label}</span>
-                                </div>
-                            );
-                        })
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                            No data found for this period.
-                        </div>
-                    )}
-                </div>
             </div>
-
-            {/* Top Performers (Dynamic) */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col">
-                <div className="mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">Top Performers</h3>
-                    <p className="text-xs text-gray-400 font-bold mt-1 uppercase tracking-wider">In Selected Period</p>
-                </div>
-                
-                <div className="space-y-4 overflow-y-auto flex-1 max-h-[300px] pr-2">
-                    {analysisData.topCars.length > 0 ? (
-                        analysisData.topCars.map((car, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border text-xs ${idx === 0 ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-white text-gray-900 border-gray-200'}`}>
-                                        #{idx + 1}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-gray-900 truncate max-w-[120px]" title={car.name}>{car.name}</p>
-                                        <p className="text-[10px] text-gray-500 font-bold uppercase">{car.count} Trips</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-black text-gray-900">₹{car.revenue.toLocaleString()}</p>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="text-center py-10 text-gray-400 text-xs font-bold">
-                            No bookings in this period.
-                        </div>
-                    )}
-                </div>
-            </div>
+            {/* Spacer for labels */}
+            <div className="h-6"></div>
         </div>
     </div>
   );

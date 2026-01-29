@@ -35,6 +35,9 @@ export const api = {
         body: JSON.stringify(data)
     }).then(handleResponse)
   },
+  analytics: {
+    getSalesReport: () => fetch(`${API_URL}/owner/sales-report`).then(handleResponse)
+  },
   users: {
     getAll: () => fetch(`${API_URL}/users`).then(handleResponse)
   },
