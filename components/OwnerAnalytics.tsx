@@ -119,7 +119,42 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         return d >= startDate && d <= endDate;
     });
 
-    // --- Generate Chart Data ---
+    // --- HELPER: Consistent Key Generation (Local Time) ---
+    // Using local time prevents mismatches between iteration date and booking date 
+    // when using toISOString() which converts to UTC.
+    const getKeyAndLabel = (date: Date, type: 'day' | 'week' | 'month') => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        
+        if (type === 'day') {
+            return {
+                key: `${y}-${m}-${d}`,
+                label: date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+            };
+        } else if (type === 'week') {
+            // Snap to start of week (Monday)
+            const dayOfWeek = date.getDay();
+            const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+            const weekStart = new Date(date);
+            weekStart.setDate(diff);
+            const wy = weekStart.getFullYear();
+            const wm = String(weekStart.getMonth() + 1).padStart(2, '0');
+            const wd = String(weekStart.getDate()).padStart(2, '0');
+            return {
+                key: `${wy}-${wm}-${wd}`,
+                label: weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+            };
+        } else {
+            // Month
+            return {
+                key: `${y}-${m}`,
+                label: date.toLocaleDateString('default', { month: 'short', year: '2-digit' })
+            };
+        }
+    };
+
+    // --- Generate Chart Buckets ---
     const chartMap = new Map<string, number>();
     const chartLabels: { label: string }[] = [];
 
@@ -131,71 +166,37 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     
     // 1. Initialize Buckets with 0
     while (iter <= endDate && safetyCounter < 366) {
-        let key = '';
-        let label = '';
-        
-        if (groupBy === 'day') {
-            // Key: YYYY-MM-DD
-            key = iter.toISOString().split('T')[0];
-            label = iter.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-            
-            // Next Day
-            iter.setDate(iter.getDate() + 1);
-        } else if (groupBy === 'week') {
-            // Key: YYYY-MM-DD (Start of Week - Monday)
-            // Snap iter to the Monday of its current week
-            const day = iter.getDay();
-            const diff = iter.getDate() - day + (day === 0 ? -6 : 1); 
-            const weekStart = new Date(iter);
-            weekStart.setDate(diff);
-            
-            key = weekStart.toISOString().split('T')[0];
-            label = weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-            
-            // Move iter to next week (ensuring we don't just increment the snapped date, but the iterator)
-            // Ideally, for iteration, we just jump 7 days from the *snapped* start
-            iter = new Date(weekStart);
-            iter.setDate(iter.getDate() + 7);
-        } else {
-            // Key: YYYY-MM (e.g., 2023-09)
-            const y = iter.getFullYear();
-            const m = String(iter.getMonth() + 1).padStart(2, '0');
-            key = `${y}-${m}`;
-            label = iter.toLocaleDateString('default', { month: 'short', year: '2-digit' });
-            
-            // Move to next month (set date to 1 to avoid Feb 30th issues)
-            iter.setDate(1);
-            iter.setMonth(iter.getMonth() + 1);
-        }
+        const { key, label } = getKeyAndLabel(iter, groupBy);
         
         if (!chartMap.has(key)) {
              chartMap.set(key, 0);
              chartLabels.push({ label });
         }
+        
+        // Increment
+        if (groupBy === 'day') iter.setDate(iter.getDate() + 1);
+        else if (groupBy === 'week') iter.setDate(iter.getDate() + 7);
+        else {
+            iter.setDate(1); // Reset to 1st to avoid month overflow issues
+            iter.setMonth(iter.getMonth() + 1);
+        }
+        
         safetyCounter++;
     }
 
     // 2. Fill Buckets with Data
     filtered.forEach(b => {
         const d = new Date(b.createdAt);
-        let key = '';
+        const { key } = getKeyAndLabel(d, groupBy);
 
-        if (groupBy === 'day') {
-            key = d.toISOString().split('T')[0];
-        } else if (groupBy === 'week') {
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-            const weekStart = new Date(d);
-            weekStart.setDate(diff);
-            key = weekStart.toISOString().split('T')[0];
-        } else {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            key = `${y}-${m}`;
-        }
-
+        // We check if the map has the key to ensure we only count data within the visible buckets.
+        // Though 'filtered' array already did strict date range check, keys ensure proper alignment.
         if (chartMap.has(key)) {
             chartMap.set(key, (chartMap.get(key) || 0) + b.totalCost);
+        } else {
+            // Edge case: If filtering logic included it but bucket logic missed it (e.g. week start mismatch)
+            // Try to find nearest key or just log warning. 
+            // With standardized getKeyAndLabel, this should match.
         }
     });
 
