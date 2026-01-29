@@ -12,6 +12,7 @@ import AuthModal from './components/AuthModal';
 import OwnerBookings from './components/OwnerBookings';
 import OwnerSettings from './components/OwnerSettings';
 import OwnerUsersList from './components/OwnerUsersList';
+import OwnerAnalytics from './components/OwnerAnalytics';
 import AddCarForm from './components/AddCarForm';
 import Toast from './components/Toast';
 import WhyChooseUs from './components/WhyChooseUs';
@@ -36,7 +37,7 @@ const PageLoader = () => (
   </div>
 );
 
-type OwnerTab = 'fleet' | 'bookings' | 'users' | 'leads' | 'settings';
+type OwnerTab = 'fleet' | 'bookings' | 'users' | 'leads' | 'analytics' | 'settings';
 
 export const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -227,6 +228,9 @@ export const App: React.FC = () => {
         filteredUsers = usersList.filter(u => isGuest(u));
     }
 
+    // Sort users by joinedAt (newest first) to ensure consistent order
+    filteredUsers.sort((a, b) => b.joinedAt - a.joinedAt);
+
     // 2. If no search term, return categorized data
     if (!q) {
         return { cars, bookings, usersList: filteredUsers };
@@ -241,8 +245,8 @@ export const App: React.FC = () => {
         return { cars, bookings: filteredBookings, usersList: filteredUsers };
     } else if (ownerTab === 'users' || ownerTab === 'leads') {
         // Filter the already categorized users list
-        filteredUsers = filteredUsers.filter(u => u.name.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q)) || u.phone.includes(q));
-        return { cars, bookings, usersList: filteredUsers };
+        const searchedUsers = filteredUsers.filter(u => u.name.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q)) || u.phone.includes(q));
+        return { cars, bookings, usersList: searchedUsers };
     }
     
     return { cars, bookings, usersList: filteredUsers };
@@ -449,7 +453,14 @@ export const App: React.FC = () => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-gray-100 sticky top-20 z-40 overflow-x-auto">
-                        {[{ id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, { id: 'bookings', label: 'Bookings', icon: '📅' }, { id: 'users', label: 'Registered', icon: '👤' }, { id: 'leads', label: 'New Users', icon: '🌟' }, { id: 'settings', label: 'Settings', icon: '⚙️' }].map((tab) => (
+                        {[
+                            { id: 'fleet', label: 'Fleet & Cars', icon: '🚗' }, 
+                            { id: 'bookings', label: 'Bookings', icon: '📅' }, 
+                            { id: 'analytics', label: 'Reports', icon: '📈' }, 
+                            { id: 'users', label: 'Registered', icon: '👤' }, 
+                            { id: 'leads', label: 'New Users', icon: '🌟' }, 
+                            { id: 'settings', label: 'Settings', icon: '⚙️' }
+                        ].map((tab) => (
                             <button key={tab.id} onClick={() => { setOwnerTab(tab.id as OwnerTab); setOwnerSearchTerm(''); }} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${ownerTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
                                 <span className="text-lg">{tab.icon}</span>
                                 <span className="hidden sm:inline">{tab.label}</span>
@@ -480,6 +491,10 @@ export const App: React.FC = () => {
                     )}
 
                     {ownerTab === 'bookings' && (<OwnerBookings bookings={ownerBookings} onApprove={handleApproveBooking} onReject={handleRejectBooking} />)}
+                    
+                    {/* NEW ANALYTICS TAB */}
+                    {ownerTab === 'analytics' && (<OwnerAnalytics bookings={bookings} />)}
+
                     {ownerTab === 'users' && (<OwnerUsersList users={ownerUsers} />)}
                     {ownerTab === 'leads' && (
                         <div className="space-y-4 animate-fade-in">
