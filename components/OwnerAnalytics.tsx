@@ -13,14 +13,12 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
   const [customEnd, setCustomEnd] = useState('');
 
   // --- AUTO-INITIALIZE CUSTOM DATES ---
-  // When user switches to 'custom', pre-fill with current month so chart isn't empty
   useEffect(() => {
     if (viewMode === 'custom' && (!customStart || !customEnd)) {
         const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), 1); // 1st of current month
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
+        const start = new Date(now.getFullYear(), now.getMonth(), 1); 
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0); 
         
-        // Format to YYYY-MM-DD
         const formatDate = (d: Date) => {
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -33,16 +31,58 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     }
   }, [viewMode]);
 
-  // --- 1. GLOBAL DASHBOARD KPI CARDS (Always Lifetime/Fixed) ---
+  // --- HELPER: SMART TIMESTAMP PARSER ---
+  // Detects if timestamp is in seconds (SQLite default) or milliseconds (JS default)
+  const parseTimestamp = (ts: number | string) => {
+      const num = Number(ts);
+      // If timestamp is less than 10 billion, it's likely seconds (valid until year 2286)
+      // JS Date requires milliseconds.
+      if (num < 10000000000) return new Date(num * 1000);
+      return new Date(num);
+  };
+
+  // --- HELPER: Consistent Key Generation (Local Time) ---
+  const getKeyAndLabel = (date: Date, type: 'day' | 'week' | 'month') => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      
+      if (type === 'day') {
+          return {
+              key: `${y}-${m}-${d}`,
+              label: date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+          };
+      } else if (type === 'week') {
+          // Snap to Monday
+          const dayOfWeek = date.getDay();
+          const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+          const weekStart = new Date(date);
+          weekStart.setDate(diff);
+          const wy = weekStart.getFullYear();
+          const wm = String(weekStart.getMonth() + 1).padStart(2, '0');
+          const wd = String(weekStart.getDate()).padStart(2, '0');
+          return {
+              key: `${wy}-${wm}-${wd}`,
+              label: weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+          };
+      } else {
+          return {
+              key: `${y}-${m}`,
+              label: date.toLocaleDateString('default', { month: 'short', year: '2-digit' })
+          };
+      }
+  };
+
+  // --- 1. GLOBAL DASHBOARD KPI CARDS ---
   const globalStats = useMemo(() => {
     const validBookings = bookings.filter(b => b.status !== 'cancelled');
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
-    // Helper for "This Week" (Sunday to Saturday)
+    // Helper for "This Week"
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
     startOfWeek.setHours(0,0,0,0);
 
     let revenueMonth = 0;
@@ -50,11 +90,13 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     const totalRevenue = validBookings.reduce((sum, b) => sum + b.totalCost, 0);
 
     validBookings.forEach(b => {
-        const bDate = new Date(b.createdAt);
+        const bDate = parseTimestamp(b.createdAt);
+        
         if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
             revenueMonth += b.totalCost;
         }
-        if (bDate >= startOfWeek) {
+        // Simple comparison for week
+        if (bDate.getTime() >= startOfWeek.getTime()) {
             revenueWeek += b.totalCost;
         }
     });
@@ -68,7 +110,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     };
   }, [bookings]);
 
-  // --- 2. DYNAMIC ANALYSIS DATA (Depends on ViewMode/DateRange) ---
+  // --- 2. DYNAMIC ANALYSIS DATA ---
   const analysisData = useMemo(() => {
     const validBookings = bookings.filter(b => b.status !== 'cancelled');
     const now = new Date();
@@ -76,22 +118,23 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     let startDate = new Date();
     let endDate = new Date();
     
-    // Set End of Day for consistency
+    // End of today
     endDate.setHours(23,59,59,999);
-    startDate.setHours(0,0,0,0);
-
+    
     let groupBy: 'day' | 'week' | 'month' = 'month';
 
-    // Determine Time Window & Grouping
     if (viewMode === 'daily') {
-        startDate.setDate(now.getDate() - 30); // Last 30 Days
+        startDate.setDate(now.getDate() - 30);
+        startDate.setHours(0,0,0,0);
         groupBy = 'day';
     } else if (viewMode === 'weekly') {
-        startDate.setDate(now.getDate() - 84); // Last 12 Weeks (~3 Months)
+        startDate.setDate(now.getDate() - 84); // 12 weeks
+        startDate.setHours(0,0,0,0);
         groupBy = 'week';
     } else if (viewMode === 'monthly') {
-        startDate.setMonth(now.getMonth() - 11); // Last 12 Months
+        startDate.setMonth(now.getMonth() - 11);
         startDate.setDate(1);
+        startDate.setHours(0,0,0,0);
         groupBy = 'month';
     } else if (viewMode === 'custom') {
         if (customStart && customEnd) {
@@ -101,70 +144,30 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
             endDate = new Date(customEnd);
             endDate.setHours(23,59,59,999);
             
-            // Auto-detect best grouping based on duration
             const diffDays = (endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24);
             if (diffDays <= 45) groupBy = 'day';
             else if (diffDays <= 180) groupBy = 'week';
             else groupBy = 'month';
         } else {
-            // Fallback
             startDate.setDate(now.getDate() - 7);
             groupBy = 'day';
         }
     }
 
-    // Filter Bookings within Range (Strict Check)
+    // Filter Bookings within Range
     const filtered = validBookings.filter(b => {
-        const d = new Date(b.createdAt);
-        return d >= startDate && d <= endDate;
+        const d = parseTimestamp(b.createdAt);
+        return d.getTime() >= startDate.getTime() && d.getTime() <= endDate.getTime();
     });
-
-    // --- HELPER: Consistent Key Generation (Local Time) ---
-    // Using local time prevents mismatches between iteration date and booking date 
-    // when using toISOString() which converts to UTC.
-    const getKeyAndLabel = (date: Date, type: 'day' | 'week' | 'month') => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        
-        if (type === 'day') {
-            return {
-                key: `${y}-${m}-${d}`,
-                label: date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-            };
-        } else if (type === 'week') {
-            // Snap to start of week (Monday)
-            const dayOfWeek = date.getDay();
-            const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-            const weekStart = new Date(date);
-            weekStart.setDate(diff);
-            const wy = weekStart.getFullYear();
-            const wm = String(weekStart.getMonth() + 1).padStart(2, '0');
-            const wd = String(weekStart.getDate()).padStart(2, '0');
-            return {
-                key: `${wy}-${wm}-${wd}`,
-                label: weekStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-            };
-        } else {
-            // Month
-            return {
-                key: `${y}-${m}`,
-                label: date.toLocaleDateString('default', { month: 'short', year: '2-digit' })
-            };
-        }
-    };
 
     // --- Generate Chart Buckets ---
     const chartMap = new Map<string, number>();
     const chartLabels: { label: string }[] = [];
 
-    // Helper: Clone date to avoid reference mutation issues
     let iter = new Date(startDate);
-    
-    // Safety break to prevent infinite loops
     let safetyCounter = 0;
     
-    // 1. Initialize Buckets with 0
+    // Initialize Buckets
     while (iter <= endDate && safetyCounter < 366) {
         const { key, label } = getKeyAndLabel(iter, groupBy);
         
@@ -173,30 +176,25 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
              chartLabels.push({ label });
         }
         
-        // Increment
         if (groupBy === 'day') iter.setDate(iter.getDate() + 1);
         else if (groupBy === 'week') iter.setDate(iter.getDate() + 7);
         else {
-            iter.setDate(1); // Reset to 1st to avoid month overflow issues
+            iter.setDate(1);
             iter.setMonth(iter.getMonth() + 1);
         }
-        
         safetyCounter++;
     }
 
-    // 2. Fill Buckets with Data
+    // Fill Buckets
     filtered.forEach(b => {
-        const d = new Date(b.createdAt);
+        const d = parseTimestamp(b.createdAt);
         const { key } = getKeyAndLabel(d, groupBy);
-
-        // We check if the map has the key to ensure we only count data within the visible buckets.
-        // Though 'filtered' array already did strict date range check, keys ensure proper alignment.
+        
+        // Accumulate if the key exists (it should, given the date filter logic)
+        // If the date range matches but bucket logic is slightly off (e.g. week start), map might miss
+        // Ideally we snap the booking date to the bucket key logic
         if (chartMap.has(key)) {
             chartMap.set(key, (chartMap.get(key) || 0) + b.totalCost);
-        } else {
-            // Edge case: If filtering logic included it but bucket logic missed it (e.g. week start mismatch)
-            // Try to find nearest key or just log warning. 
-            // With standardized getKeyAndLabel, this should match.
         }
     });
 
@@ -205,7 +203,7 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
         value
     }));
 
-    // --- Calculate Top Performers (In this Range) ---
+    // Top Performers
     const carStats: Record<string, { revenue: number, count: number, name: string }> = {};
     filtered.forEach(b => {
         if (!carStats[b.carId]) {
@@ -224,12 +222,10 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
     return { chartData, topCars, periodRevenue };
   }, [bookings, viewMode, customStart, customEnd]);
 
-  // Max value for chart scaling
   const maxChartValue = Math.max(...analysisData.chartData.map(d => d.value), 100);
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
-        
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -291,7 +287,6 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
 
         {/* ANALYSIS SECTION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
             {/* Main Chart Card */}
             <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
@@ -319,20 +314,18 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                     </div>
                 </div>
 
-                {/* Custom Date Inputs (Refined UI) */}
+                {/* Custom Date Inputs */}
                 {viewMode === 'custom' && (
                     <div className="flex items-end gap-3 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-fade-in relative z-10">
                         <div className="flex-1 group relative">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">From Date</label>
                             <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
                                 <span className="text-xs font-bold text-gray-700 flex-1">{customStart || 'Select Date'}</span>
-                                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 <input 
                                     type="date" 
                                     value={customStart} 
                                     onChange={(e) => {
                                         setCustomStart(e.target.value);
-                                        // Reset end date if it becomes invalid
                                         if (customEnd && e.target.value > customEnd) setCustomEnd('');
                                     }}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
@@ -344,7 +337,6 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                             <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">To Date</label>
                             <div className="relative w-full bg-white border border-gray-200 rounded-lg h-10 flex items-center px-3 hover:border-red-400 transition-colors">
                                 <span className={`text-xs font-bold flex-1 ${customEnd ? 'text-gray-700' : 'text-gray-400'}`}>{customEnd || 'Select Date'}</span>
-                                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 <input 
                                     type="date" 
                                     min={customStart}
@@ -361,16 +353,13 @@ const OwnerAnalytics: React.FC<OwnerAnalyticsProps> = ({ bookings }) => {
                 <div className="h-64 flex items-end justify-between gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide">
                     {analysisData.chartData.length > 0 ? (
                         analysisData.chartData.map((data, idx) => {
-                            const heightPercent = (data.value / maxChartValue) * 100;
+                            const heightPercent = maxChartValue > 0 ? (data.value / maxChartValue) * 100 : 0;
                             return (
                                 <div key={idx} className="flex-1 flex flex-col items-center group min-w-[30px]">
                                     <div className="relative w-full bg-gray-50 rounded-t-sm flex items-end justify-center overflow-hidden hover:bg-gray-100 transition-colors h-full">
-                                        {/* Tooltip */}
                                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none">
                                             ₹{data.value.toLocaleString()}
                                         </div>
-                                        
-                                        {/* Bar */}
                                         <div 
                                             className={`w-full mx-0.5 rounded-t transition-all duration-700 ease-out relative ${data.value > 0 ? 'bg-red-600' : 'bg-transparent'}`}
                                             style={{ height: `${data.value > 0 ? Math.max(heightPercent, 2) : 0}%` }}
